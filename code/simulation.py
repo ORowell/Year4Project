@@ -95,7 +95,7 @@ class Simulation:
         
         self.dots = [ax.plot([], [], 'o', c='r')[0] for i in range(num_vortices)]
         
-        animator = anim.FuncAnimation(fig, self._anim_update, n_steps, blit = True)
+        animator = anim.FuncAnimation(fig, self._anim_update, n_steps, blit=True)
         
         self.p_bar = tqdm.tqdm(total = n_steps+1, desc='Animating ', unit='fr', bar_format=BAR_FORMAT)
         animator.save(f'results\\{filename}', fps=30)
@@ -109,12 +109,13 @@ class Simulation:
         return self.dots
     
 def ground_state():
-    sim = Simulation(2, 1, 1, 1)
+    root_3 = np.sqrt(3)
+    sim = Simulation(2, root_3, 1, 1)
     
     sim.create_vortex(0, 0)
     sim.create_vortex(1, 0)
-    sim.create_vortex(0.5, 0.5)
-    sim.create_vortex(1.5, 0.5)
+    sim.create_vortex(0.5, 0.5*root_3)
+    sim.create_vortex(1.5, 0.5*root_3)
     
     sim.run_sim(0.2, 0.001)
     sim.animate('groundstate.gif')
@@ -128,5 +129,5 @@ def many_vortices():
     sim.animate('lots.gif')
     
 if __name__ == '__main__':
-    # ground_state()
-    many_vortices()
+    ground_state()
+    # many_vortices()
