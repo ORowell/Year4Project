@@ -18,6 +18,10 @@ class Simulation:
         
         self.x_images = x_repeats
         self.y_images = y_repeats
+        
+        self.current_force = np.array([0, 0])
+        
+        self.result = None
     
     def add_vortex(self, x_pos, y_pos):
         self.vortices = np.append(self.vortices, [[x_pos, y_pos]], axis=0)
@@ -28,15 +32,17 @@ class Simulation:
         
         self.vortices = np.append(x_vals, y_vals, axis=1)
         
-    def add_triangular_lattice(self, corner, rows: int, cols: int):
+    def add_triangular_lattice(self, corner, rows: int,
+                               cols: int, offset: bool=False):
         corner = np.array(corner)
         self.vortices = np.append(self.vortices,
-                                  self._generate_lattice_pos(corner, rows, cols), axis=0)
+                                  self._generate_lattice_pos(corner, rows, cols, offset), axis=0)
             
-    def _generate_lattice_pos(self, corner: np.ndarray, rows: int, cols: int):
+    def _generate_lattice_pos(self, corner: np.ndarray, rows: int,
+                              cols: int, offset: bool=False):
         new_vortices: np.ndarray = np.empty(shape=(0, 2))
         for i in range(rows):
-            x_vals = np.arange(cols) + 0.5*(i%2)
+            x_vals = np.arange(cols) + 0.5*((i+offset)%2)
             y_vals = np.full_like(x_vals, i*HALF_ROOT_3)
             
             new_lattice = np.stack((x_vals, y_vals), axis=1) + corner
@@ -54,22 +60,25 @@ class Simulation:
             self.step(dt)
             self.result[i] = self.vortices.copy()
             
-        return self.result            
+        return self.result
         
     def step(self, dt: float):
-        images = self.get_images()
-        all_vortices = np.concatenate((self.vortices, images))
+        all_vortices = self.get_all_vortices()
         new_vortices = self.vortices.copy()
         for i, vortex in enumerate(self.vortices):
             acting_vortices = np.delete(all_vortices, i, axis=0)
-            force = self.vortices_force(vortex, acting_vortices)
+            force = self.vortices_force(vortex, acting_vortices) + self.current_force
             
             new_vortices[i] += dt*force
         
         self.vortices = new_vortices
         self.wrap_particles()
+        
+    def get_all_vortices(self):
+        images = self.get_images(self.vortices)
+        return np.concatenate((self.vortices, images))
     
-    def get_images(self):
+    def get_images(self, vortices):
         x_offset = np.repeat(np.arange(-self.x_images, self.x_images+1), 2*self.y_images+1) * self.x_size
         y_offset = np.tile(np.arange(-self.y_images, self.y_images+1), 2*self.x_images+1) * self.y_size
         
@@ -78,8 +87,8 @@ class Simulation:
         y_offset = np.delete(y_offset, y_offset.size//2, axis=0)
         
         # Add the offsets to each vortex
-        x_images = (x_offset[np.newaxis, :] + self.vortices[:, 0][:, np.newaxis]).flatten()
-        y_images = (y_offset[np.newaxis, :] + self.vortices[:, 1][:, np.newaxis]).flatten()
+        x_images = (x_offset[np.newaxis, :] + vortices[:, 0][:, np.newaxis]).flatten()
+        y_images = (y_offset[np.newaxis, :] + vortices[:, 1][:, np.newaxis]).flatten()
               
         return np.stack((x_images, y_images), axis=1)
     
@@ -105,23 +114,28 @@ class Simulation:
     def animate(self, filename, anim_freq=1):
         n_steps, num_vortices, _ = self.result.shape
         n_steps //= anim_freq
+        self._anim_freq = anim_freq
         
+        fig, _ = self._anim_init(num_vortices)
+        
+        animator = anim.FuncAnimation(fig, self._anim_update, n_steps, blit=True)
+        
+        self._p_bar = tqdm.tqdm(total=n_steps+1, desc='Animating ', unit='fr', bar_format=BAR_FORMAT)
+        animator.save(f'results\\{filename}', fps=30)
+        self._p_bar.close()
+        
+    def _anim_init(self, num_vortices):
         fig = plt.figure()
         ax = fig.add_subplot(1, 1, 1)
         ax.set_xlim([0, self.x_size])
         ax.set_ylim([0, self.y_size])
         
         self._dots = [ax.plot([], [], 'o', c='r')[0] for i in range(num_vortices)]
-        self._anim_freq = anim_freq
         
-        animator = anim.FuncAnimation(fig, self._anim_update, n_steps, blit=True)
-        
-        self.p_bar = tqdm.tqdm(total = n_steps+1, desc='Animating ', unit='fr', bar_format=BAR_FORMAT)
-        animator.save(f'results\\{filename}', fps=30)
-        self.p_bar.close()
+        return fig, ax
         
     def _anim_update(self, frame_num):
-        self.p_bar.update(1)
+        self._p_bar.update(1)
         for i, dot in enumerate(self._dots):
             dot.set_data(self.result[frame_num*self._anim_freq, i])
             
