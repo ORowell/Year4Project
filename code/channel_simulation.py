@@ -10,6 +10,7 @@ class ChannelSimulation(Simulation):
         
     @classmethod
     def create_channel(cls, channel_width, pinned_width, channel_length, repeats):
+        """Create a system channel of free vortices amongst pinned vortices"""
         obj = cls(channel_length, channel_width + 2*pinned_width, repeats, 0)
         
         obj.add_pinned_lattice((0, HALF_ROOT_3/2), pinned_width, channel_length, pinned_width%2)
@@ -20,9 +21,9 @@ class ChannelSimulation(Simulation):
         
         return obj
         
-    def get_all_vortices(self):
+    def _get_all_vortices(self):
         all_vortices = np.concatenate((self.vortices, self.pinned_vortices))
-        images = self.get_images(all_vortices)
+        images = self._get_images(all_vortices)
         return np.concatenate((all_vortices, images))
     
     def add_pinned_lattice(self, corner, rows: int, cols: int, offset: bool=False):

@@ -1,3 +1,4 @@
+from typing import Optional, Union
 import numpy as np
 import scipy.special as scipy_s
 import tqdm
@@ -8,25 +9,33 @@ BAR_FORMAT = '{desc}: {percentage:5.1f}%|{bar}{r_bar}'
 HALF_ROOT_3 = np.sqrt(3)/2
 
 class Simulation:
-    def __init__(self, x_num, y_num, x_repeats, y_repeats):
+    def __init__(self, x_num: int, y_num: int, x_repeats: int, y_repeats: int):
+        # Give the vortices array the right shape to allow appending
         self.vortices: np.ndarray = np.empty(shape=(0, 2))
         
         self.x_size = x_num
         self.y_size = y_num * HALF_ROOT_3
         self.x_size_ary = np.array([self.x_size, 0])
         self.y_size_ary = np.array([0, self.y_size])
+        self.size_ary = np.array([self.x_size, self.y_size])
         
         self.x_images = x_repeats
         self.y_images = y_repeats
         
         self.current_force = np.array([0, 0])
         
-        self.result = None
+        self.result: Union[None, np.ndarray] = None
     
-    def add_vortex(self, x_pos, y_pos):
+    def add_vortex(self, x_pos: float, y_pos: float):
+        """Add a vortex at the given x and y position"""
         self.vortices = np.append(self.vortices, [[x_pos, y_pos]], axis=0)
         
-    def create_random_vortices(self, num_vortices: int):
+    def create_random_vortices(self, num_vortices: int, seed: Optional[int] = None):
+        """Create a given number of vortices at random locations"""
+        # Allow usage of a seed for consistent results, eg. benchmarking
+        if seed is not None:
+            np.random.seed(seed)
+        
         x_vals = np.random.uniform(0, self.x_size, (num_vortices, 1))
         y_vals = np.random.uniform(0, self.y_size, (num_vortices, 1))
         
@@ -34,6 +43,10 @@ class Simulation:
         
     def add_triangular_lattice(self, corner, rows: int,
                                cols: int, offset: bool=False):
+        """Generate a triangular vortex lattice at a given location.
+        
+        offset controls whether the bottom left vortex is at corner
+        or offset by half a unit"""
         corner = np.array(corner)
         self.vortices = np.append(self.vortices,
                                   self._generate_lattice_pos(corner, rows, cols, offset), axis=0)
@@ -42,9 +55,11 @@ class Simulation:
                               cols: int, offset: bool=False):
         new_vortices: np.ndarray = np.empty(shape=(0, 2))
         for i in range(rows):
+            # X vals should be offset every other row (ie. mod 2)
             x_vals = np.arange(cols) + 0.5*((i+offset)%2)
             y_vals = np.full_like(x_vals, i*HALF_ROOT_3)
             
+            # Join the values and add the overall shift
             new_lattice = np.stack((x_vals, y_vals), axis=1) + corner
             
             new_vortices = np.append(new_vortices, new_lattice, axis=0)
@@ -53,32 +68,41 @@ class Simulation:
     
     def run_sim(self, total_time: float, dt: float):
         num_steps = int(total_time/dt)
+        # Record the positions of the vortices at each time step
         self.result = np.empty((num_steps+1, *self.vortices.shape))
         self.result[0] = self.vortices.copy()
         
+        # Loop with progress bar
         for i in tqdm.tqdm(range(num_steps), desc='Simulating', bar_format=BAR_FORMAT):
-            self.step(dt)
+            self._step(dt)
             self.result[i] = self.vortices.copy()
             
         return self.result
         
-    def step(self, dt: float):
-        all_vortices = self.get_all_vortices()
+    def _step(self, dt: float):
+        all_vortices = self._get_all_vortices()
         new_vortices = self.vortices.copy()
+        # TODO: Could be done by numpy without a loop?
         for i, vortex in enumerate(self.vortices):
+            # Don't allow a vortex to act on itself
             acting_vortices = np.delete(all_vortices, i, axis=0)
-            force = self.vortices_force(vortex, acting_vortices) + self.current_force
+            force = self._vortices_force(vortex, acting_vortices) + self.current_force
             
             new_vortices[i] += dt*force
         
         self.vortices = new_vortices
-        self.wrap_particles()
+        self._wrap_particles()
         
-    def get_all_vortices(self):
-        images = self.get_images(self.vortices)
+    def _get_all_vortices(self):
+        """Get an array of every vortex (real or images) that could apply a force.
+        This must start with the real vortices in order.
+        """
+        images = self._get_images(self.vortices)
         return np.concatenate((self.vortices, images))
     
-    def get_images(self, vortices):
+    def _get_images(self, vortices):
+        """Return an array of the images of each vortex in vortices"""
+        # Find the offsets for each "tile" of images
         x_offset = np.repeat(np.arange(-self.x_images, self.x_images+1), 2*self.y_images+1) * self.x_size
         y_offset = np.tile(np.arange(-self.y_images, self.y_images+1), 2*self.x_images+1) * self.y_size
         
@@ -92,7 +116,7 @@ class Simulation:
               
         return np.stack((x_images, y_images), axis=1)
     
-    def vortices_force(self, vortex_pos, other_pos):
+    def _vortices_force(self, vortex_pos, other_pos):
         rel_pos = vortex_pos - other_pos
         distances = np.linalg.norm(rel_pos, axis=1, keepdims=True)
         directions = rel_pos/distances
@@ -102,14 +126,9 @@ class Simulation:
         
         return np.sum(forces, axis=0)
     
-    def wrap_particles(self):
-        x_num_shifts = self.vortices[:, 0]//self.x_size
-        x_shift = np.outer(x_num_shifts, self.x_size_ary)
-        self.vortices -= x_shift
-        
-        y_num_shifts = self.vortices[:, 1]//self.y_size
-        y_shift = np.outer(y_num_shifts, self.y_size_ary)
-        self.vortices -= y_shift
+    def _wrap_particles(self):
+        """Wrap any vortices that have left the simulated cell back to the other side"""
+        self.vortices = np.mod(self.vortices, self.size_ary)
     
     def animate(self, filename, anim_freq=1):
         n_steps, num_vortices, _ = self.result.shape
@@ -150,13 +169,13 @@ def ground_state():
     sim.animate('groundstate.gif', 10)
     
 def many_vortices():
-    sim = Simulation(4, 3, 2, 2)
+    sim = Simulation(4, 3, 0, 0)
     
-    sim.create_random_vortices(150)
+    sim.create_random_vortices(150, seed=120)
     
-    sim.run_sim(0.4, 0.001)
-    sim.animate('lots.gif')
+    sim.run_sim(0.4, 0.0001)
+    # sim.animate('lots.gif')
     
 if __name__ == '__main__':
-    ground_state()
-    # many_vortices()
+    # ground_state()
+    many_vortices()
