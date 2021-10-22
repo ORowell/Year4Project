@@ -1,3 +1,4 @@
+from typing import Union
 from simulation import Simulation, HALF_ROOT_3
 
 import numpy as np
@@ -22,14 +23,21 @@ class ChannelSimulation(Simulation):
         return obj
         
     def _get_all_vortices(self):
-        all_vortices = np.concatenate((self.vortices, self.pinned_vortices))
-        images = self._get_images(all_vortices)
-        return np.concatenate((all_vortices, images))
+        real_vortices = super()._get_all_vortices()
+        return np.concatenate((real_vortices, self.pinned_vortices))
     
     def add_pinned_lattice(self, corner, rows: int, cols: int, offset: bool=False):
         corner = np.array(corner)
-        self.pinned_vortices = np.append(self.pinned_vortices,
-                                         self._generate_lattice_pos(corner, rows, cols, offset), axis=0)
+        new_vortices = self._generate_lattice_pos(corner, rows, cols, offset)
+        new_images = self._get_images(new_vortices)
+        self.pinned_vortices = np.concatenate((self.pinned_vortices, new_vortices, new_images))
+        
+    def add_pinned_vortex(self, x_pos: float, y_pos: float):
+        """Add a pinned vortex at the given x and y position"""
+        position = np.array([[x_pos, y_pos]])
+        self.pinned_vortices = np.append(self.pinned_vortices, [[x_pos, y_pos]], axis=0)
+        images = self._get_images(position)
+        self.pinned_vortices = np.concatenate((self.pinned_vortices, images))
         
     def _anim_init(self, num_vortices):
         fig, ax = super()._anim_init(num_vortices)
