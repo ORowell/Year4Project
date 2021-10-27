@@ -4,9 +4,28 @@ import scipy.special as scipy_s
 import tqdm
 import matplotlib.pyplot as plt
 import matplotlib.animation as anim
+from dataclasses import dataclass, field
 
 BAR_FORMAT = '{desc}: {percentage:5.1f}%|{bar}{r_bar}'
 HALF_ROOT_3 = np.sqrt(3)/2
+
+@dataclass
+class SimResult:
+    """Data class to store the results of a simulation"""
+    values: np.ndarray
+    dt: float
+    x_size: float
+    y_size: float
+    num_t: int = field(init=False)
+    num_vortices: int = field(init=False)
+    t_max: float = field(init=False)
+    size_ary: np.ndarray = field(init=False)
+    
+    def __post_init__(self):
+        self.num_t, self.num_vortices, _ = self.values.shape
+        self.t_max = self.dt * self.num_t
+        self.size_ary = np.array([self.x_size, self.y_size])
+        
 
 class Simulation:
     def __init__(self, x_num: int, y_num: int, x_repeats: int, y_repeats: int):
@@ -24,7 +43,7 @@ class Simulation:
         
         self.current_force = np.array([0, 0])
         
-        self.result: Union[None, np.ndarray] = None
+        self.result: Union[None, SimResult] = None
     
     def add_vortex(self, x_pos: float, y_pos: float):
         """Add a vortex at the given x and y position"""
@@ -69,15 +88,15 @@ class Simulation:
     def run_sim(self, total_time: float, dt: float):
         num_steps = int(total_time/dt)
         # Record the positions of the vortices at each time step
-        self.result = np.empty((num_steps+1, *self.vortices.shape))
-        self.result[0] = self.vortices.copy()
+        result_vals = np.empty((num_steps+1, *self.vortices.shape))
+        result_vals[0] = self.vortices.copy()
         
         # Loop with progress bar
         for i in tqdm.tqdm(range(num_steps), desc='Simulating', bar_format=BAR_FORMAT):
             self._step(dt)
-            self.result[i] = self.vortices.copy()
+            result_vals[i] = self.vortices.copy()
             
-        return self.result
+        return SimResult(result_vals, dt, self.x_size, self.y_size)
         
     def _step(self, dt: float):
         all_vortices = self._get_all_vortices()
@@ -131,11 +150,11 @@ class Simulation:
         self.vortices = np.mod(self.vortices, self.size_ary)
     
     def animate(self, filename, anim_freq=1):
-        n_steps, num_vortices, _ = self.result.shape
-        n_steps //= anim_freq
+        assert self.result is not None
+        n_steps = self.result.num_t//anim_freq
         self._anim_freq = anim_freq
         
-        fig, _ = self._anim_init(num_vortices)
+        fig, _ = self._anim_init(self.result.num_vortices)
         
         animator = anim.FuncAnimation(fig, self._anim_update, n_steps, blit=True)
         
