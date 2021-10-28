@@ -42,8 +42,6 @@ class Simulation:
         self.y_images = y_repeats
         
         self.current_force = np.array([0, 0])
-        
-        self.result: Union[None, SimResult] = None
     
     def add_vortex(self, x_pos: float, y_pos: float):
         """Add a vortex at the given x and y position"""
@@ -148,13 +146,16 @@ class Simulation:
     def _wrap_particles(self):
         """Wrap any vortices that have left the simulated cell back to the other side"""
         self.vortices = np.mod(self.vortices, self.size_ary)
-    
-    def animate(self, filename, anim_freq=1):
-        assert self.result is not None
-        n_steps = self.result.num_t//anim_freq
+        
+        
+class SimAnimator:    
+    def animate(self, result: SimResult, filename, anim_freq=1):
+        self._result = result
+        
+        n_steps = self._result.num_t//anim_freq
         self._anim_freq = anim_freq
         
-        fig, _ = self._anim_init(self.result.num_vortices)
+        fig, _ = self._anim_init(self._result.num_vortices)
         
         animator = anim.FuncAnimation(fig, self._anim_update, n_steps, blit=True)
         
@@ -165,8 +166,8 @@ class Simulation:
     def _anim_init(self, num_vortices):
         fig = plt.figure()
         ax = fig.add_subplot(1, 1, 1)
-        ax.set_xlim([0, self.x_size])
-        ax.set_ylim([0, self.y_size])
+        ax.set_xlim([0, self._result.x_size])
+        ax.set_ylim([0, self._result.y_size])
         
         self._dots = [ax.plot([], [], 'o', c='r')[0] for i in range(num_vortices)]
         
@@ -175,7 +176,7 @@ class Simulation:
     def _anim_update(self, frame_num):
         self._p_bar.update(1)
         for i, dot in enumerate(self._dots):
-            dot.set_data(self.result[frame_num*self._anim_freq, i])
+            dot.set_data(self._result.values[frame_num*self._anim_freq, i])
             
         return self._dots
     
@@ -184,16 +185,20 @@ def ground_state():
     
     sim.add_triangular_lattice((0, 0), 2, 2)
     
-    sim.run_sim(0.2, 0.0001)
-    sim.animate('groundstate.gif', 10)
+    result = sim.run_sim(0.2, 0.0001)
+    
+    animator = SimAnimator()
+    animator.animate(result, 'groundstate.gif', 10)
     
 def many_vortices():
-    sim = Simulation(4, 3, 0, 0)
+    sim = Simulation(4, 3, 1, 1)
     
     sim.create_random_vortices(150, seed=120)
     
-    sim.run_sim(0.4, 0.0001)
-    # sim.animate('lots.gif')
+    result = sim.run_sim(0.4, 0.001)
+    
+    animator = SimAnimator()
+    animator.animate(result, 'lots.gif')
     
 if __name__ == '__main__':
     # ground_state()
