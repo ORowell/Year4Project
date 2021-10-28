@@ -159,7 +159,7 @@ class Simulation:
         animator = anim.FuncAnimation(fig, self._anim_update, n_steps, blit=True)
         
         self._p_bar = tqdm.tqdm(total=n_steps+1, desc='Animating ', unit='fr', bar_format=BAR_FORMAT)
-        animator.save(f'results\\{filename}', fps=30)
+        animator.save(f'results\\gifs\\{filename}', fps=30)
         self._p_bar.close()
         
     def _anim_init(self, num_vortices):
