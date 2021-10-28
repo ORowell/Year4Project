@@ -1,7 +1,9 @@
-from typing import Optional, Union
+from typing import Optional, Type, TypeVar
+import os.path
 import numpy as np
 import scipy.special as scipy_s
 import tqdm
+import pickle
 import matplotlib.pyplot as plt
 import matplotlib.animation as anim
 from dataclasses import dataclass, field
@@ -9,6 +11,8 @@ from dataclasses import dataclass, field
 BAR_FORMAT = '{desc}: {percentage:5.1f}%|{bar}{r_bar}'
 HALF_ROOT_3 = np.sqrt(3)/2
 
+
+T = TypeVar('T', bound='SimResult')
 @dataclass
 class SimResult:
     """Data class to store the results of a simulation"""
@@ -26,6 +30,27 @@ class SimResult:
         self.t_max = self.dt * self.num_t
         self.size_ary = np.array([self.x_size, self.y_size])
         
+    def get_average_velocity(self):
+        diff = self.values[1:, :, :] - self.values[:-1, :, :]
+        diff = np.mod(diff + self.x_size/2, self.size_ary) - self.x_size/2
+        avg_diff = np.mean(diff, (0, 1))
+        
+        return avg_diff / self.dt
+    
+    def save(self, filename: str):
+        with open(f'results\\{self.__class__.__name__}s\\{filename}', 'wb') as f:
+            pickle.dump(self, f)
+            
+    @classmethod
+    def load(cls: Type[T], filename: str, quiet=False) -> Optional[T]:
+        path = f'results\\{cls.__name__}s\\{filename}'
+        if not os.path.exists(path):
+            if not quiet:
+                print(f'{path} not found')
+            return None
+        with open(f'results\\{cls.__name__}s\\{filename}', 'rb') as f:
+            return pickle.load(f)
+
 
 class Simulation:
     def __init__(self, x_num: int, y_num: int, x_repeats: int, y_repeats: int):
@@ -92,7 +117,7 @@ class Simulation:
         # Loop with progress bar
         for i in tqdm.tqdm(range(num_steps), desc='Simulating', bar_format=BAR_FORMAT):
             self._step(dt)
-            result_vals[i] = self.vortices.copy()
+            result_vals[i+1] = self.vortices.copy()
             
         return SimResult(result_vals, dt, self.x_size, self.y_size)
         

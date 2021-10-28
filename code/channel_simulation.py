@@ -1,8 +1,16 @@
-from typing import Union
+from typing import Iterable
 from simulation import Simulation, HALF_ROOT_3, SimResult, SimAnimator
 
 import numpy as np
 from dataclasses import dataclass
+import matplotlib.pyplot as plt
+
+# Default values
+PINNED_DEPTH = 4
+CHANNEL_LENGTH = 10
+T_MAX = 200
+T_STEPS = 1e4
+REPEATS = 1
 
 @dataclass
 class ChannelSimResult(SimResult):
@@ -71,7 +79,7 @@ class ChannelSimAnimator(SimAnimator):
         return fig, ax
 
 def plain_channel():
-    sim = ChannelSimulation.create_channel(1, 4, 10, 1)
+    sim = ChannelSimulation.create_channel(1, PINNED_DEPTH, CHANNEL_LENGTH, REPEATS)
     
     result = sim.run_sim(0.5, 0.0001)
     
@@ -79,15 +87,56 @@ def plain_channel():
     animator.animate(result, 'channel.gif', 10)
     
 def current_channel():
-    sim = ChannelSimulation.create_channel(2, 4, 10, 1)
-    sim.current_force = np.array((0.1, 0))
+    width = 1
+    force = 0.1
     
-    T = 200
-    result = sim.run_sim(T, T/1e4)
+    result = get_channel_result(width, force)
     
     animator = ChannelSimAnimator()
-    animator.animate(result, 'current_channel_2w.gif', 10)
+    animator.animate(result, f'current_channel_{width}w.gif', 10)
+    
+def get_channel_result(width: int, force: float, t_max: float=T_MAX, num_steps=T_STEPS,
+                       pinned_width: int=PINNED_DEPTH, length: int=CHANNEL_LENGTH, repeats: int=REPEATS):
+    dt = t_max/num_steps
+    sim = ChannelSimulation.create_channel(width, pinned_width, length, repeats)
+    
+    result = ChannelSimResult.load(f'w={width}, f={round(force, 4)}')
+    if result is not None:
+        if (result.dt == dt and result.num_t-1 == int(num_steps)
+            and np.all(result.size_ary == sim.size_ary)):
+            return result
+    sim.current_force = np.array((force, 0))
+    
+    sim_result = sim.run_sim(t_max, dt)
+    sim_result.save(f'w={width}, f={round(force, 4)}')
+    
+    return sim_result
+
+def get_average_vels(forces: Iterable[float], width, **kwargs):
+    vels = []
+    for force in forces:
+        result = get_channel_result(width, force, **kwargs)
+        vels.append(result.get_average_velocity())
+        # print(round(force, 4), vels[-1])
+        
+    return np.array(vels)
+
+def plot_vels(force_list: Iterable[float], width, **kwargs):
+    velocities = get_average_vels(force_list, width, **kwargs)
+    
+    fig = plt.figure(figsize=(10, 8))
+    ax = fig.add_subplot(1, 1, 1)
+    
+    ax.plot(force_list, velocities[:, 0], '.-', label='x')
+    ax.plot(force_list, velocities[:, 1], '.-', label='y')
+    
+    ax.set_ylabel('Average velocity')
+    ax.set_xlabel('Force from current')
+    ax.legend()
+    
+    plt.show()
     
 if __name__ == '__main__':
     # plain_channel()
-    current_channel()
+    # current_channel()
+    plot_vels(np.linspace(0, 0.2, 10, endpoint=False).tolist() + np.linspace(0.2, 0.5, 13).tolist(), 1)
