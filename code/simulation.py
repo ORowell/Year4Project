@@ -38,17 +38,17 @@ class SimResult:
         return avg_diff / self.dt
     
     def save(self, filename: str):
-        with open(f'results\\{self.__class__.__name__}s\\{filename}', 'wb') as f:
+        with open(f'results\\Simulation_results\\{self.__class__.__name__}\\{filename}', 'wb') as f:
             pickle.dump(self, f)
             
     @classmethod
     def load(cls: Type[T], filename: str, quiet=False) -> Optional[T]:
-        path = f'results\\{cls.__name__}s\\{filename}'
+        path = f'results\\Simulation_results\\{cls.__name__}\\{filename}'
         if not os.path.exists(path):
             if not quiet:
                 print(f'{path} not found')
             return None
-        with open(f'results\\{cls.__name__}s\\{filename}', 'rb') as f:
+        with open(f'results\\Simulation_results\\{cls.__name__}\\{filename}', 'rb') as f:
             return pickle.load(f)
 
 
