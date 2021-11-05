@@ -10,7 +10,8 @@ from dataclasses import dataclass, field
 
 BAR_FORMAT = '{desc}: {percentage:5.1f}%|{bar}{r_bar}'
 HALF_ROOT_3 = np.sqrt(3)/2
-
+SAVE_LOCATION = 'results\\Simulation_results\\{cls.__name__}'
+FILE_LOCATION = SAVE_LOCATION + '\\{filename}'
 
 T = TypeVar('T', bound='SimResult')
 @dataclass
@@ -38,17 +39,17 @@ class SimResult:
         return avg_diff / self.dt
     
     def save(self, filename: str):
-        with open(f'results\\Simulation_results\\{self.__class__.__name__}\\{filename}', 'wb') as f:
+        with open(FILE_LOCATION.format(cls=self.__class__, filename=filename), 'wb') as f:
             pickle.dump(self, f)
             
     @classmethod
     def load(cls: Type[T], filename: str, quiet=False) -> Optional[T]:
-        path = f'results\\Simulation_results\\{cls.__name__}\\{filename}'
+        path = FILE_LOCATION.format(cls=cls, filename=filename)
         if not os.path.exists(path):
             if not quiet:
                 print(f'{path} not found')
             return None
-        with open(f'results\\Simulation_results\\{cls.__name__}\\{filename}', 'rb') as f:
+        with open(FILE_LOCATION.format(cls=cls, filename=filename), 'rb') as f:
             return pickle.load(f)
 
 

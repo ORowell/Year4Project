@@ -1,6 +1,7 @@
-from typing import Iterable
-from simulation import Simulation, HALF_ROOT_3, SimResult, SimAnimator
+from typing import Iterable, List
+from simulation import Simulation, HALF_ROOT_3, SimResult, SimAnimator, SAVE_LOCATION
 
+import os
 import numpy as np
 from dataclasses import dataclass
 import matplotlib.pyplot as plt
@@ -11,6 +12,8 @@ CHANNEL_LENGTH = 10
 T_MAX = 200
 T_STEPS = 1e4
 REPEATS = 1
+
+ANALYTICAL_FC = 0.050018
 
 @dataclass
 class ChannelSimResult(SimResult):
@@ -95,12 +98,15 @@ def current_channel():
     animator = ChannelSimAnimator()
     animator.animate(result, f'current_channel_{width}w.gif', 10)
     
+def get_filename(width, force):
+    return f'w={width}, f={round(force, 4)}'
+    
 def get_channel_result(width: int, force: float, t_max: float=T_MAX, num_steps=T_STEPS,
                        pinned_width: int=PINNED_DEPTH, length: int=CHANNEL_LENGTH, repeats: int=REPEATS):
     dt = t_max/num_steps
     sim = ChannelSimulation.create_channel(width, pinned_width, length, repeats)
     
-    result = ChannelSimResult.load(f'w={width}, f={round(force, 4)}')
+    result = ChannelSimResult.load(get_filename(width, force))
     if result is not None:
         if (result.dt == dt and result.num_t-1 == int(num_steps)
             and np.all(result.size_ary == sim.size_ary)):
@@ -108,21 +114,33 @@ def get_channel_result(width: int, force: float, t_max: float=T_MAX, num_steps=T
     sim.current_force = np.array((force, 0))
     
     sim_result = sim.run_sim(t_max, dt)
-    sim_result.save(f'w={width}, f={round(force, 4)}')
+    sim_result.save(get_filename(width, force))
     
     return sim_result
 
-def get_average_vels(forces: Iterable[float], width, **kwargs):
+def get_average_vels(forces: Iterable[float], width, include_saved_results=False, **kwargs):
     vels = []
+    output_forces = []
+    if include_saved_results:
+        output_forces, extra_results = get_saved_results(width, **kwargs)
+        vels = [result.get_average_velocity() for result in extra_results]
+    
     for force in forces:
+        if force in output_forces:
+            continue
         result = get_channel_result(width, force, **kwargs)
+        output_forces.append(force)
         vels.append(result.get_average_velocity())
         # print(round(force, 4), vels[-1])
         
-    return np.array(vels)
+    return np.array(vels), output_forces
 
-def plot_vels(force_list: Iterable[float], width, **kwargs):
-    velocities = get_average_vels(force_list, width, **kwargs)
+def plot_vels(force_list: Iterable[float], width, include_saved_results=False, **kwargs):
+    velocities, force_list = get_average_vels(force_list, width, include_saved_results, **kwargs)
+    
+    # Sort so that the force list is in order
+    force_list, velocities = zip(*sorted(zip(force_list, velocities)))
+    velocities = np.array(velocities)
     
     fig = plt.figure(figsize=(10, 8))
     ax = fig.add_subplot(1, 1, 1)
@@ -136,7 +154,34 @@ def plot_vels(force_list: Iterable[float], width, **kwargs):
     
     plt.show()
     
+def get_saved_results(width: int, t_max: float=T_MAX, num_steps=T_STEPS, pinned_width: int=PINNED_DEPTH,
+                      length: int=CHANNEL_LENGTH, repeats: int=REPEATS):
+    file_start = f'w={width}, f='
+    start_len = len(file_start)
+    
+    dt = t_max/num_steps
+    # Create blank sim to get correct size
+    sim = ChannelSimulation.create_channel(width, pinned_width, length, repeats)
+    
+    force_list: List[float] = []
+    result_list: List[ChannelSimResult] = []
+    
+    for filename in os.listdir(SAVE_LOCATION.format(cls=ChannelSimResult)):
+        if filename[:start_len] != file_start:
+            continue
+        force = float(filename[start_len:])
+        
+        result = ChannelSimResult.load(filename)
+        if result is not None:
+            if (result.dt == dt and result.num_t-1 == int(num_steps)
+                and np.all(result.size_ary == sim.size_ary)):
+                force_list.append(force)
+                result_list.append(result)
+                
+    return force_list, result_list
+    
 if __name__ == '__main__':
     # plain_channel()
     # current_channel()
-    plot_vels(np.linspace(0, 0.2, 10, endpoint=False).tolist() + np.linspace(0.2, 0.5, 13).tolist(), 1)
+    # plot_vels(np.linspace(0, 0.2, 10, endpoint=False).tolist() + np.linspace(0.2, 0.5, 13).tolist(), 3)
+    plot_vels(np.linspace(0.045, 0.055, 201), 1, True)
