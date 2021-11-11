@@ -109,16 +109,22 @@ class Simulation:
         
         return new_vortices
     
-    def run_sim(self, total_time: float, dt: float, leave_pbar: bool=True):
+    def run_sim(self, total_time: float, dt: float, leave_pbar: bool=True,
+                quiet: bool=False):
         num_steps = int(total_time/dt)
         # Record the positions of the vortices at each time step
         result_vals = np.empty((num_steps+1, *self.vortices.shape))
         result_vals[0] = self.vortices.copy()
         
-        # Loop with progress bar
-        for i in tqdm.tqdm(range(num_steps), desc='Simulating', bar_format=BAR_FORMAT, leave=leave_pbar):
-            self._step(dt)
-            result_vals[i+1] = self.vortices.copy()
+        if quiet:
+            for i in range(num_steps):
+                self._step(dt)
+                result_vals[i+1] = self.vortices.copy()
+        else:
+            # Loop with progress bar
+            for i in tqdm.tqdm(range(num_steps), desc='Simulating', bar_format=BAR_FORMAT, leave=leave_pbar):
+                self._step(dt)
+                result_vals[i+1] = self.vortices.copy()
             
         return SimResult(result_vals, dt, self.x_size, self.y_size)
         

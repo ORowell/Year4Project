@@ -1,4 +1,4 @@
-from typing import Iterable, List
+from typing import Iterable, List, Sequence
 from simulation import Simulation, HALF_ROOT_3, SimResult, SimAnimator, SAVE_LOCATION
 
 import os
@@ -6,6 +6,7 @@ import sys
 import numpy as np
 from dataclasses import dataclass
 import matplotlib.pyplot as plt
+import tqdm
 
 # Default values
 PINNED_DEPTH = 4
@@ -63,8 +64,9 @@ class ChannelSimulation(Simulation):
         images = self._get_images(position)
         self.pinned_vortices = np.concatenate((self.pinned_vortices, images))
         
-    def run_sim(self, total_time: float, dt: float, leave_pbar: bool=True):
-        sim_result = super().run_sim(total_time, dt, leave_pbar)
+    def run_sim(self, total_time: float, dt: float, leave_pbar: bool=True,
+                quiet: bool=False):
+        sim_result = super().run_sim(total_time, dt, leave_pbar, quiet)
         return ChannelSimResult.from_SimResult(sim_result, self.pinned_vortices)
         
         
@@ -104,7 +106,7 @@ def get_filename(width, force):
     
 def get_channel_result(width: int, force: float, t_max: float=T_MAX, num_steps=T_STEPS,
                        pinned_width: int=PINNED_DEPTH, length: int=CHANNEL_LENGTH, repeats: int=REPEATS,
-                       leave_output: bool=False):
+                       leave_output: bool=False, quiet=False):
     dt = t_max/num_steps
     sim = ChannelSimulation.create_channel(width, pinned_width, length, repeats)
     filename = get_filename(width, force)
@@ -113,27 +115,37 @@ def get_channel_result(width: int, force: float, t_max: float=T_MAX, num_steps=T
     if result is not None:
         if (result.dt == dt and result.num_t-1 == int(num_steps)
             and np.all(result.size_ary == sim.size_ary)):
-            print(f'Found {filename}, returning result')
-            if not leave_output:
-                sys.stdout.write("\x1b[1A\r")
+            if not quiet:
+                if not leave_output:
+                    print()
+                print(f'Found {filename}, returning result', end='')
+                if not leave_output:
+                    sys.stdout.write("\r\x1b[1A")
+                else:
+                    print()
             return result
     sim.current_force = np.array((force, 0))
     
-    print(f'Couldn\'t find {filename}, running simulation')
-    sim_result = sim.run_sim(t_max, dt, leave_output)
-    sys.stdout.write("\x1b[1A\x1b[2K")
+    if not quiet:
+        if not leave_output:
+            print()
+        print(f'Couldn\'t find {filename}, running simulation', end='')
+    sim_result = sim.run_sim(t_max, dt, leave_output, quiet)
+    if not leave_output:
+        sys.stdout.write("\x1b[1A")
     sim_result.save(filename)
     
     return sim_result
 
-def get_average_vels(forces: Iterable[float], width, include_saved_results=False, **kwargs):
+def get_average_vels(forces: Sequence[float], width, include_saved_results=False, **kwargs):
     vels = []
     output_forces = []
     if include_saved_results:
         output_forces, extra_results = get_saved_results(width, **kwargs)
         vels = [result.get_average_velocity() for result in extra_results]
     
-    for force in forces:
+    for i in tqdm.tqdm(range(len(forces)), maxinterval=10000, miniters=1):
+        force = forces[i]
         if force in output_forces:
             continue
         result = get_channel_result(width, force, **kwargs)
@@ -142,7 +154,7 @@ def get_average_vels(forces: Iterable[float], width, include_saved_results=False
         
     return np.array(vels), output_forces
 
-def plot_vels(force_list: Iterable[float], width, include_saved_results=False, **kwargs):
+def plot_vels(force_list: Sequence[float], width, include_saved_results=False, **kwargs):
     velocities, force_list = get_average_vels(force_list, width, include_saved_results, **kwargs)
     
     # Sort so that the force list is in order
@@ -191,4 +203,5 @@ if __name__ == '__main__':
     # plain_channel()
     # current_channel()
     _width = 1
-    plot_vels(np.linspace(ANALYTICAL_FC*0.9/_width, ANALYTICAL_FC*1.1/_width, 21), _width, True)
+    # plot_vels(np.linspace(ANALYTICAL_FC*0.9/_width, ANALYTICAL_FC*1.1/_width, 21), _width, True)
+    plot_vels(np.arange(ANALYTICAL_FC*1.1/_width, 0.1, 0.0001), _width, False)
