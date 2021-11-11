@@ -2,6 +2,7 @@ from typing import Iterable, List
 from simulation import Simulation, HALF_ROOT_3, SimResult, SimAnimator, SAVE_LOCATION
 
 import os
+import sys
 import numpy as np
 from dataclasses import dataclass
 import matplotlib.pyplot as plt
@@ -62,8 +63,8 @@ class ChannelSimulation(Simulation):
         images = self._get_images(position)
         self.pinned_vortices = np.concatenate((self.pinned_vortices, images))
         
-    def run_sim(self, total_time: float, dt: float):
-        sim_result = super().run_sim(total_time, dt)
+    def run_sim(self, total_time: float, dt: float, leave_pbar: bool=True):
+        sim_result = super().run_sim(total_time, dt, leave_pbar)
         return ChannelSimResult.from_SimResult(sim_result, self.pinned_vortices)
         
         
@@ -99,22 +100,29 @@ def current_channel():
     animator.animate(result, f'current_channel_{width}w.gif', 10)
     
 def get_filename(width, force):
-    return f'w={width}, f={round(force, 4)}'
+    return f'w={width}, f={round(force, 6)}'
     
 def get_channel_result(width: int, force: float, t_max: float=T_MAX, num_steps=T_STEPS,
-                       pinned_width: int=PINNED_DEPTH, length: int=CHANNEL_LENGTH, repeats: int=REPEATS):
+                       pinned_width: int=PINNED_DEPTH, length: int=CHANNEL_LENGTH, repeats: int=REPEATS,
+                       leave_output: bool=False):
     dt = t_max/num_steps
     sim = ChannelSimulation.create_channel(width, pinned_width, length, repeats)
+    filename = get_filename(width, force)
     
-    result = ChannelSimResult.load(get_filename(width, force))
+    result = ChannelSimResult.load(filename, True)
     if result is not None:
         if (result.dt == dt and result.num_t-1 == int(num_steps)
             and np.all(result.size_ary == sim.size_ary)):
+            print(f'Found {filename}, returning result')
+            if not leave_output:
+                sys.stdout.write("\x1b[1A\r")
             return result
     sim.current_force = np.array((force, 0))
     
-    sim_result = sim.run_sim(t_max, dt)
-    sim_result.save(get_filename(width, force))
+    print(f'Couldn\'t find {filename}, running simulation')
+    sim_result = sim.run_sim(t_max, dt, leave_output)
+    sys.stdout.write("\x1b[1A\x1b[2K")
+    sim_result.save(filename)
     
     return sim_result
 
@@ -131,7 +139,6 @@ def get_average_vels(forces: Iterable[float], width, include_saved_results=False
         result = get_channel_result(width, force, **kwargs)
         output_forces.append(force)
         vels.append(result.get_average_velocity())
-        # print(round(force, 4), vels[-1])
         
     return np.array(vels), output_forces
 
@@ -183,5 +190,5 @@ def get_saved_results(width: int, t_max: float=T_MAX, num_steps=T_STEPS, pinned_
 if __name__ == '__main__':
     # plain_channel()
     # current_channel()
-    # plot_vels(np.linspace(0, 0.2, 10, endpoint=False).tolist() + np.linspace(0.2, 0.5, 13).tolist(), 3)
-    plot_vels(np.linspace(0.045, 0.055, 201), 1, True)
+    _width = 1
+    plot_vels(np.linspace(ANALYTICAL_FC*0.9/_width, ANALYTICAL_FC*1.1/_width, 21), _width, True)
