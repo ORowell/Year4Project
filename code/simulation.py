@@ -176,12 +176,16 @@ class Simulation:
         if cutoff:
             large_distances = distances > cutoff
             distances[large_distances] = 0
-        force_sizes = scipy_s.kn(1, distances)
+        force_sizes = self._bessel_func(distances)
         if cutoff:
             force_sizes[large_distances] = 0
         forces = force_sizes * directions
         
         return np.sum(forces, axis=0)
+    
+    @staticmethod
+    def _bessel_func(val):
+        return scipy_s.kn(1, val)
     
     def _wrap_particles(self):
         """Wrap any vortices that have left the simulated cell back to the other side"""

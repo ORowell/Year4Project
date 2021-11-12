@@ -16,6 +16,10 @@ T_STEPS = 1e4
 REPEATS = 1
 CUTOFF = 9
 
+if any(arg in sys.argv for arg in ('--profile', '-p')):
+    PROFILING = True
+else:
+    PROFILING = False
 ANALYTICAL_FC = 0.050018
 
 @dataclass
@@ -107,35 +111,38 @@ def get_filename(width, force):
     
 def get_channel_result(width: int, force: float, t_max: float=T_MAX, num_steps=T_STEPS,
                        pinned_width: int=PINNED_DEPTH, length: int=CHANNEL_LENGTH, repeats: int=REPEATS,
-                       cutoff: float = CUTOFF, leave_output: bool=False, quiet=False):
+                       cutoff: float = CUTOFF, leave_output: bool=False, quiet=False,
+                       force_sim: bool = PROFILING, save_result: bool = not PROFILING):
     dt = t_max/num_steps
     sim = ChannelSimulation.create_channel(width, pinned_width, length, repeats)
+    
     filename = get_filename(width, force)
+    if not force_sim:
+        result = ChannelSimResult.load(filename, True)
+        if result is not None:
+            if (result.dt == dt and result.num_t-1 == int(num_steps)
+                and np.all(result.size_ary == sim.size_ary)
+                and result.cutoff == cutoff):
+                if not quiet:
+                    if not leave_output:
+                        print()
+                    print(f'Found {filename}, returning result', end='')
+                    if not leave_output:
+                        sys.stdout.write("\r\x1b[1A")
+                    else:
+                        print()
+                return result
+        if not quiet:
+            if not leave_output:
+                print()
+            print(f'Couldn\'t find {filename}, running simulation', end='')
     
-    result = ChannelSimResult.load(filename, True)
-    if result is not None:
-        if (result.dt == dt and result.num_t-1 == int(num_steps)
-            and np.all(result.size_ary == sim.size_ary)
-            and result.cutoff == cutoff):
-            if not quiet:
-                if not leave_output:
-                    print()
-                print(f'Found {filename}, returning result', end='')
-                if not leave_output:
-                    sys.stdout.write("\r\x1b[1A")
-                else:
-                    print()
-            return result
     sim.current_force = np.array((force, 0))
-    
-    if not quiet:
-        if not leave_output:
-            print()
-        print(f'Couldn\'t find {filename}, running simulation', end='')
     sim_result = sim.run_sim(t_max, dt, cutoff, leave_output, quiet)
-    if not leave_output:
+    if not leave_output and not force_sim:
         sys.stdout.write("\x1b[1A")
-    sim_result.save(filename)
+    if save_result:
+        sim_result.save(filename)
     
     return sim_result
 
@@ -173,7 +180,8 @@ def plot_vels(force_list: Sequence[float], width, include_saved_results=False, *
     ax.set_xlabel('Force from current')
     ax.legend()
     
-    plt.show()
+    if not PROFILING:
+        plt.show()
     
 def get_saved_results(width: int, t_max: float=T_MAX, num_steps=T_STEPS, pinned_width: int=PINNED_DEPTH,
                       length: int=CHANNEL_LENGTH, repeats: int=REPEATS, cutoff: float = CUTOFF):
@@ -205,6 +213,7 @@ def get_saved_results(width: int, t_max: float=T_MAX, num_steps=T_STEPS, pinned_
 if __name__ == '__main__':
     # plain_channel()
     # current_channel()
-    _width = 1
+    _width = 2
+    plot_vels(np.arange(0, 0.1, 0.01), _width)
     # plot_vels(np.linspace(ANALYTICAL_FC*0.9/_width, ANALYTICAL_FC*1.1/_width, 21), _width, True) #type: ignore
-    plot_vels(np.arange(ANALYTICAL_FC*1.1/_width, 0.1, 0.0001), _width, False)
+    # plot_vels(np.arange(ANALYTICAL_FC*1.1/_width, 0.1, 0.0001), _width, False)
