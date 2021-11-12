@@ -21,6 +21,7 @@ class SimResult:
     dt: float
     x_size: float
     y_size: float
+    cutoff: float
     num_t: int = field(init=False)
     num_vortices: int = field(init=False)
     t_max: float = field(init=False)
@@ -109,36 +110,37 @@ class Simulation:
         
         return new_vortices
     
-    def run_sim(self, total_time: float, dt: float, leave_pbar: bool=True,
-                quiet: bool=False):
+    def run_sim(self, total_time: float, dt: float, cutoff: float,
+                leave_pbar: bool=True, quiet: bool=False):
         num_steps = int(total_time/dt)
         # Record the positions of the vortices at each time step
         result_vals = np.empty((num_steps+1, *self.vortices.shape))
         result_vals[0] = self.vortices.copy()
         
         if quiet:
-            for i in range(num_steps):
-                self._step(dt)
-                result_vals[i+1] = self.vortices.copy()
+            iterator = range(num_steps)
         else:
             # Loop with progress bar
-            for i in tqdm.tqdm(range(num_steps), desc='Simulating', bar_format=BAR_FORMAT, leave=leave_pbar):
-                self._step(dt)
-                result_vals[i+1] = self.vortices.copy()
-            
-        return SimResult(result_vals, dt, self.x_size, self.y_size)
+            iterator = tqdm.tqdm(range(num_steps), desc='Simulating', bar_format=BAR_FORMAT, leave=leave_pbar)
         
-    def _step(self, dt: float):
+        for i in iterator:
+            self._step(dt, cutoff)
+            result_vals[i+1] = self.vortices.copy()
+            
+        return SimResult(result_vals, dt, self.x_size, self.y_size, cutoff)
+        
+    def _step(self, dt: float, cutoff: float):
         all_vortices = self._get_all_vortices()
         new_vortices = self.vortices.copy()
         # TODO: Could be done by numpy without a loop?
         for i, vortex in enumerate(self.vortices):
             # Don't allow a vortex to act on itself
             acting_vortices = np.delete(all_vortices, i, axis=0)
-            force = self._vortices_force(vortex, acting_vortices) + self.current_force
+            force = self._vortices_force(vortex, acting_vortices, cutoff)
             
             new_vortices[i] += dt*force
         
+        new_vortices += dt * self.current_force
         self.vortices = new_vortices
         self._wrap_particles()
         
@@ -165,12 +167,18 @@ class Simulation:
               
         return np.stack((x_images, y_images), axis=1)
     
-    def _vortices_force(self, vortex_pos, other_pos):
+    def _vortices_force(self, vortex_pos, other_pos, cutoff):
         rel_pos = vortex_pos - other_pos
         distances = np.linalg.norm(rel_pos, axis=1, keepdims=True)
         directions = rel_pos/distances
         
+        # Don't calculate for long distances
+        if cutoff:
+            large_distances = distances > cutoff
+            distances[large_distances] = 0
         force_sizes = scipy_s.kn(1, distances)
+        if cutoff:
+            force_sizes[large_distances] = 0
         forces = force_sizes * directions
         
         return np.sum(forces, axis=0)

@@ -14,6 +14,7 @@ CHANNEL_LENGTH = 10
 T_MAX = 200
 T_STEPS = 1e4
 REPEATS = 1
+CUTOFF = 9
 
 ANALYTICAL_FC = 0.050018
 
@@ -23,7 +24,7 @@ class ChannelSimResult(SimResult):
     
     @classmethod
     def from_SimResult(cls, simresult: SimResult, pinned_vortices):
-        return cls(simresult.values, simresult.dt, simresult.x_size, simresult.y_size, pinned_vortices)
+        return cls(simresult.values, simresult.dt, simresult.x_size, simresult.y_size, simresult.cutoff, pinned_vortices)
 
 
 class ChannelSimulation(Simulation):
@@ -64,9 +65,9 @@ class ChannelSimulation(Simulation):
         images = self._get_images(position)
         self.pinned_vortices = np.concatenate((self.pinned_vortices, images))
         
-    def run_sim(self, total_time: float, dt: float, leave_pbar: bool=True,
-                quiet: bool=False):
-        sim_result = super().run_sim(total_time, dt, leave_pbar, quiet)
+    def run_sim(self, total_time: float, dt: float, cutoff: float,
+                leave_pbar: bool=True, quiet: bool=False):
+        sim_result = super().run_sim(total_time, dt, cutoff, leave_pbar, quiet)
         return ChannelSimResult.from_SimResult(sim_result, self.pinned_vortices)
         
         
@@ -106,7 +107,7 @@ def get_filename(width, force):
     
 def get_channel_result(width: int, force: float, t_max: float=T_MAX, num_steps=T_STEPS,
                        pinned_width: int=PINNED_DEPTH, length: int=CHANNEL_LENGTH, repeats: int=REPEATS,
-                       leave_output: bool=False, quiet=False):
+                       cutoff: float = CUTOFF, leave_output: bool=False, quiet=False):
     dt = t_max/num_steps
     sim = ChannelSimulation.create_channel(width, pinned_width, length, repeats)
     filename = get_filename(width, force)
@@ -114,7 +115,8 @@ def get_channel_result(width: int, force: float, t_max: float=T_MAX, num_steps=T
     result = ChannelSimResult.load(filename, True)
     if result is not None:
         if (result.dt == dt and result.num_t-1 == int(num_steps)
-            and np.all(result.size_ary == sim.size_ary)):
+            and np.all(result.size_ary == sim.size_ary)
+            and result.cutoff == cutoff):
             if not quiet:
                 if not leave_output:
                     print()
@@ -130,7 +132,7 @@ def get_channel_result(width: int, force: float, t_max: float=T_MAX, num_steps=T
         if not leave_output:
             print()
         print(f'Couldn\'t find {filename}, running simulation', end='')
-    sim_result = sim.run_sim(t_max, dt, leave_output, quiet)
+    sim_result = sim.run_sim(t_max, dt, cutoff, leave_output, quiet)
     if not leave_output:
         sys.stdout.write("\x1b[1A")
     sim_result.save(filename)
@@ -144,7 +146,7 @@ def get_average_vels(forces: Sequence[float], width, include_saved_results=False
         output_forces, extra_results = get_saved_results(width, **kwargs)
         vels = [result.get_average_velocity() for result in extra_results]
     
-    for i in tqdm.tqdm(range(len(forces)), maxinterval=10000, miniters=1):
+    for i in tqdm.tqdm(range(len(forces)), maxinterval=10000, miniters=1, unit='sim'):
         force = forces[i]
         if force in output_forces:
             continue
@@ -174,7 +176,7 @@ def plot_vels(force_list: Sequence[float], width, include_saved_results=False, *
     plt.show()
     
 def get_saved_results(width: int, t_max: float=T_MAX, num_steps=T_STEPS, pinned_width: int=PINNED_DEPTH,
-                      length: int=CHANNEL_LENGTH, repeats: int=REPEATS):
+                      length: int=CHANNEL_LENGTH, repeats: int=REPEATS, cutoff: float = CUTOFF):
     file_start = f'w={width}, f='
     start_len = len(file_start)
     
@@ -193,7 +195,8 @@ def get_saved_results(width: int, t_max: float=T_MAX, num_steps=T_STEPS, pinned_
         result = ChannelSimResult.load(filename)
         if result is not None:
             if (result.dt == dt and result.num_t-1 == int(num_steps)
-                and np.all(result.size_ary == sim.size_ary)):
+                and np.all(result.size_ary == sim.size_ary)
+                and result.cutoff == cutoff):
                 force_list.append(force)
                 result_list.append(result)
                 
@@ -203,5 +206,5 @@ if __name__ == '__main__':
     # plain_channel()
     # current_channel()
     _width = 1
-    # plot_vels(np.linspace(ANALYTICAL_FC*0.9/_width, ANALYTICAL_FC*1.1/_width, 21), _width, True)
+    # plot_vels(np.linspace(ANALYTICAL_FC*0.9/_width, ANALYTICAL_FC*1.1/_width, 21), _width, True) #type: ignore
     plot_vels(np.arange(ANALYTICAL_FC*1.1/_width, 0.1, 0.0001), _width, False)
