@@ -32,9 +32,9 @@ class SimResult:
         self.t_max = self.dt * self.num_t
         self.size_ary = np.array([self.x_size, self.y_size])
         
-    def get_average_velocity(self):
-        diff = self.values[1:, :, :] - self.values[:-1, :, :]
-        diff = np.mod(diff + self.x_size/2, self.size_ary) - self.x_size/2
+    def get_average_velocity(self, start_index=0):
+        diff = self.values[start_index+1:, :, :] - self.values[start_index:-1, :, :]
+        diff = np.mod(diff + self.size_ary/2, self.size_ary) - self.size_ary/2
         avg_diff = np.mean(diff, (0, 1))
         
         return avg_diff / self.dt
@@ -55,6 +55,8 @@ class SimResult:
 
 
 class Simulation:
+    result_type = SimResult
+    
     def __init__(self, x_num: int, y_num: int, x_repeats: int, y_repeats: int):
         # Give the vortices array the right shape to allow appending
         self.vortices: np.ndarray = np.empty(shape=(0, 2))
@@ -208,7 +210,7 @@ class SimAnimator:
         self._p_bar.close()
         
     def _anim_init(self, num_vortices):
-        fig = plt.figure()
+        fig = plt.figure(figsize=(10, 10*self._result.y_size/self._result.x_size))
         ax = fig.add_subplot(1, 1, 1)
         ax.set_xlim([0, self._result.x_size])
         ax.set_ylim([0, self._result.y_size])
@@ -229,7 +231,7 @@ def ground_state():
     
     sim.add_triangular_lattice((0, 0), 2, 2)
     
-    result = sim.run_sim(0.2, 0.0001)
+    result = sim.run_sim(0.2, 0.0001, 0)
     
     animator = SimAnimator()
     animator.animate(result, 'groundstate.gif', 10)
@@ -239,7 +241,7 @@ def many_vortices():
     
     sim.create_random_vortices(150, seed=120)
     
-    result = sim.run_sim(0.4, 0.001)
+    result = sim.run_sim(0.4, 0.001, 0)
     
     animator = SimAnimator()
     animator.animate(result, 'lots.gif')

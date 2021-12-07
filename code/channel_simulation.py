@@ -1,4 +1,4 @@
-from typing import Iterable, List, Sequence
+from typing import Iterable, List, Sequence, Type
 from simulation import Simulation, HALF_ROOT_3, SimResult, SimAnimator, SAVE_LOCATION
 
 import os
@@ -7,20 +7,23 @@ import numpy as np
 from dataclasses import dataclass
 import matplotlib.pyplot as plt
 import tqdm
+from abc import ABC, abstractmethod
 
 # Default values
 PINNED_DEPTH = 4
-CHANNEL_LENGTH = 10
+CHANNEL_LENGTH = 1
 T_MAX = 200
 T_STEPS = 1e4
-REPEATS = 1
+REPEATS = 0
 CUTOFF = 9
+ANALYTIC_TERMS = 1
 
 if any(arg in sys.argv for arg in ('--profile', '-p')):
     PROFILING = True
 else:
     PROFILING = False
 ANALYTICAL_FC = 0.050018
+PI2 = 2*np.pi
 
 @dataclass
 class ChannelSimResult(SimResult):
@@ -29,9 +32,25 @@ class ChannelSimResult(SimResult):
     @classmethod
     def from_SimResult(cls, simresult: SimResult, pinned_vortices):
         return cls(simresult.values, simresult.dt, simresult.x_size, simresult.y_size, simresult.cutoff, pinned_vortices)
+    
+@dataclass
+class AnalyticalChannelSimResult(SimResult):
+    n_max: int
+    
+    @classmethod
+    def from_SimResult(cls, simresult: SimResult, n_max):
+        return cls(simresult.values, simresult.dt, simresult.x_size, simresult.y_size, simresult.cutoff, n_max)
+
+class _AbstractChannelSimulation(Simulation, ABC):
+    @classmethod
+    @abstractmethod
+    def create_channel(cls, channel_width, channel_length, repeats, *args):
+        raise NotImplementedError
 
 
-class ChannelSimulation(Simulation):
+class ChannelSimulation(_AbstractChannelSimulation):
+    result_type = ChannelSimResult # type: ignore
+    
     def __init__(self, x_num, y_num, x_repeats, y_repeats):
         super().__init__(x_num, y_num, x_repeats, y_repeats)
         
@@ -39,7 +58,7 @@ class ChannelSimulation(Simulation):
         self.pinned_images = np.empty(shape=(0, 2))
         
     @classmethod
-    def create_channel(cls, channel_width, pinned_width, channel_length, repeats):
+    def create_channel(cls, channel_width, channel_length, repeats, pinned_width):
         """Create a system channel of free vortices amongst pinned vortices"""
         obj = cls(channel_length, channel_width + 2*pinned_width, repeats, 0)
         
@@ -74,6 +93,57 @@ class ChannelSimulation(Simulation):
         sim_result = super().run_sim(total_time, dt, cutoff, leave_pbar, quiet)
         return ChannelSimResult.from_SimResult(sim_result, self.pinned_vortices)
         
+
+class AnalyticChannelSimulation(_AbstractChannelSimulation):
+    result_type = AnalyticalChannelSimResult # type: ignore
+    
+    def __init__(self, x_num: int, y_num: int, x_repeats: int,
+                 y_repeats: int, n_max: int, even_channel: bool):
+        super().__init__(x_num, y_num, x_repeats, y_repeats)
+        
+        self.n_max = n_max
+        n = np.arange(n_max+1)
+        self.even_channel = even_channel
+        
+        q_n = np.sqrt(1 + (PI2*n)**2)
+        alpha_n = 1/(1-(-1)**n*np.exp(-q_n*HALF_ROOT_3))/q_n
+        
+        self.alpha_0 = alpha_n[0]
+        self.alpha_n = alpha_n[1:]
+        self.q_n = q_n[1:]
+        self.n = n[1:]
+        
+        self.tau_n = (-1)**self.n if even_channel else 1
+        
+    @classmethod
+    def create_channel(cls, channel_width, channel_length, repeats, pinned_n):
+        """Create a system channel of free vortices amongst pinned vortices"""
+        is_even = channel_width % 2 == 0
+        obj = cls(channel_length, channel_width + 1, repeats, 0, pinned_n, is_even)
+        
+        obj.add_triangular_lattice((0.5, HALF_ROOT_3), channel_width, channel_length)
+        
+        return obj
+        
+    def run_sim(self, total_time: float, dt: float, cutoff: float,
+                leave_pbar: bool=True, quiet: bool=False):
+        sim_result = super().run_sim(total_time, dt, cutoff, leave_pbar, quiet)
+        return AnalyticalChannelSimResult.from_SimResult(sim_result, self.n_max)
+    
+    def _vortices_force(self, vortex_pos, other_pos, cutoff):
+        force = super()._vortices_force(vortex_pos, other_pos, cutoff)
+        
+        x, y = vortex_pos
+        exp_y = np.exp(-self.q_n * y)
+        exp_wy = np.exp(self.q_n * (y - self.y_size))
+        f_xn = self.alpha_n*self.n*np.sin(PI2*self.n*x)*(exp_y + self.tau_n*exp_wy)
+        f_yn = self.alpha_n*self.q_n*np.cos(PI2*self.n*x)*(exp_y - self.tau_n*exp_wy)
+        
+        f_x = PI2**2 * np.sum(f_xn)
+        f_y = -PI2*self.alpha_0*np.exp(-self.y_size/2)*np.sinh(y-self.y_size/2) + PI2 * np.sum(f_yn)
+        
+        return force + np.array([f_x, f_y])
+    
         
 class ChannelSimAnimator(SimAnimator):
     _result: ChannelSimResult
@@ -90,7 +160,7 @@ class ChannelSimAnimator(SimAnimator):
         return fig, ax
 
 def plain_channel():
-    sim = ChannelSimulation.create_channel(1, PINNED_DEPTH, CHANNEL_LENGTH, REPEATS)
+    sim = ChannelSimulation.create_channel(1, CHANNEL_LENGTH, REPEATS, PINNED_DEPTH)
     
     result = sim.run_sim(0.5, 0.0001)
     
@@ -101,28 +171,42 @@ def current_channel():
     width = 1
     force = 0.1
     
-    result = get_channel_result(width, force)
+    result = get_channel_result(width, force, ChannelSimulation, PINNED_DEPTH)
     
     animator = ChannelSimAnimator()
     animator.animate(result, f'current_channel_{width}w.gif', 10)
     
+def current_channel_analytic():
+    width = 1
+    force = 0.06
+    
+    sim = AnalyticChannelSimulation.create_channel(width, CHANNEL_LENGTH, REPEATS, ANALYTIC_TERMS)
+    sim.current_force = np.array((force, 0))
+    sim_result = sim.run_sim(T_MAX, T_MAX/T_STEPS, CUTOFF)
+    
+    animator = SimAnimator()
+    animator.animate(sim_result, f'current_channel_a_{width}w.gif', 10)
+    
 def get_filename(width, force):
     return f'w={width}, f={round(force, 6)}'
     
-def get_channel_result(width: int, force: float, t_max: float=T_MAX, num_steps=T_STEPS,
-                       pinned_width: int=PINNED_DEPTH, length: int=CHANNEL_LENGTH, repeats: int=REPEATS,
-                       cutoff: float = CUTOFF, leave_output: bool=False, quiet=False,
-                       force_sim: bool = PROFILING, save_result: bool = not PROFILING):
+def get_channel_result(width: int, force: float, channel_cls: Type[_AbstractChannelSimulation],
+                       cls_args=(), t_max: float=T_MAX, num_steps=T_STEPS,
+                       length: int=CHANNEL_LENGTH, repeats: int=REPEATS, cutoff: float = CUTOFF,
+                       leave_output: bool=False, quiet=False, force_sim: bool = PROFILING,
+                       save_result: bool = not PROFILING):
     dt = t_max/num_steps
-    sim = ChannelSimulation.create_channel(width, pinned_width, length, repeats)
+    sim = channel_cls.create_channel(width, length, repeats, *cls_args)
     
     filename = get_filename(width, force)
     if not force_sim:
-        result = ChannelSimResult.load(filename, True)
+        result = channel_cls.result_type.load(filename, True)
         if result is not None:
             if (result.dt == dt and result.num_t-1 == int(num_steps)
                 and np.all(result.size_ary == sim.size_ary)
-                and result.cutoff == cutoff):
+                and result.cutoff == cutoff
+                and (not isinstance(result, AnalyticalChannelSimResult) or
+                     result.n_max == cls_args[0])):
                 if not quiet:
                     if not leave_output:
                         print()
@@ -146,25 +230,29 @@ def get_channel_result(width: int, force: float, t_max: float=T_MAX, num_steps=T
     
     return sim_result
 
-def get_average_vels(forces: Sequence[float], width, include_saved_results=False, **kwargs):
+def get_average_vels(forces: Sequence[float], width, channel_cls: Type[_AbstractChannelSimulation],
+                     cls_args=(), include_saved_results=not PROFILING, **kwargs):
     vels = []
     output_forces = []
     if include_saved_results:
-        output_forces, extra_results = get_saved_results(width, **kwargs)
+        output_forces, extra_results = get_saved_results(width, channel_cls, cls_args, **kwargs)
         vels = [result.get_average_velocity() for result in extra_results]
     
     for i in tqdm.tqdm(range(len(forces)), maxinterval=10000, miniters=1, unit='sim'):
         force = forces[i]
         if force in output_forces:
             continue
-        result = get_channel_result(width, force, **kwargs)
+        result = get_channel_result(width, force, channel_cls, cls_args=cls_args,
+                                    force_sim=not include_saved_results, **kwargs)
         output_forces.append(force)
         vels.append(result.get_average_velocity())
         
     return np.array(vels), output_forces
 
-def plot_vels(force_list: Sequence[float], width, include_saved_results=False, **kwargs):
-    velocities, force_list = get_average_vels(force_list, width, include_saved_results, **kwargs)
+def plot_vels(force_list: Sequence[float], width, channel_cls: Type[_AbstractChannelSimulation],
+              cls_args=(), include_saved_results=not PROFILING, **kwargs):
+    velocities, force_list = get_average_vels(force_list, width, channel_cls, cls_args,
+                                              include_saved_results, **kwargs)
     
     # Sort so that the force list is in order
     force_list, velocities = zip(*sorted(zip(force_list, velocities)))
@@ -183,28 +271,32 @@ def plot_vels(force_list: Sequence[float], width, include_saved_results=False, *
     if not PROFILING:
         plt.show()
     
-def get_saved_results(width: int, t_max: float=T_MAX, num_steps=T_STEPS, pinned_width: int=PINNED_DEPTH,
-                      length: int=CHANNEL_LENGTH, repeats: int=REPEATS, cutoff: float = CUTOFF):
+def get_saved_results(width: int, channel_cls: Type[_AbstractChannelSimulation], cls_args=(),
+                      t_max: float=T_MAX, num_steps=T_STEPS, length: int=CHANNEL_LENGTH,
+                      repeats: int=REPEATS, cutoff: float = CUTOFF):
     file_start = f'w={width}, f='
     start_len = len(file_start)
     
     dt = t_max/num_steps
     # Create blank sim to get correct size
-    sim = ChannelSimulation.create_channel(width, pinned_width, length, repeats)
+    sim = channel_cls.create_channel(width, length, repeats, *cls_args)
     
+    result_type = channel_cls.result_type
     force_list: List[float] = []
-    result_list: List[ChannelSimResult] = []
+    result_list: List[result_type] = [] # type: ignore
     
-    for filename in os.listdir(SAVE_LOCATION.format(cls=ChannelSimResult)):
+    for filename in os.listdir(SAVE_LOCATION.format(cls=result_type)):
         if filename[:start_len] != file_start:
             continue
         force = float(filename[start_len:])
         
-        result = ChannelSimResult.load(filename)
+        result = result_type.load(filename)
         if result is not None:
             if (result.dt == dt and result.num_t-1 == int(num_steps)
                 and np.all(result.size_ary == sim.size_ary)
-                and result.cutoff == cutoff):
+                and result.cutoff == cutoff
+                and (not isinstance(result, AnalyticalChannelSimResult) or
+                     result.n_max == cls_args[0])):
                 force_list.append(force)
                 result_list.append(result)
                 
@@ -213,7 +305,14 @@ def get_saved_results(width: int, t_max: float=T_MAX, num_steps=T_STEPS, pinned_
 if __name__ == '__main__':
     # plain_channel()
     # current_channel()
-    _width = 2
-    plot_vels(np.arange(0, 0.1, 0.01), _width)
-    # plot_vels(np.linspace(ANALYTICAL_FC*0.9/_width, ANALYTICAL_FC*1.1/_width, 21), _width, True) #type: ignore
-    # plot_vels(np.arange(ANALYTICAL_FC*1.1/_width, 0.1, 0.0001), _width, False)
+    # current_channel_analytic()
+    _width = 1
+    # plot_vels(np.arange(0, 0.1, 0.001), _width, ChannelSimulation, (PINNED_DEPTH,))
+    plot_vels(np.arange(0, 0.1, 0.001), _width, AnalyticChannelSimulation, (ANALYTIC_TERMS,))
+    
+    force_vals = np.linspace(ANALYTICAL_FC*0.99/_width, ANALYTICAL_FC*1.05/_width, 21)
+    # plot_vels(force_vals, _width, ChannelSimulation, (PINNED_DEPTH,)) # type: ignore
+    force_vals = np.linspace(ANALYTICAL_FC*0.9/_width, ANALYTICAL_FC*1.1/_width, 201)
+    plot_vels(force_vals, _width, AnalyticChannelSimulation, (ANALYTIC_TERMS,)) # type: ignore
+    
+    # plot_vels(np.arange(ANALYTICAL_FC*1.1/_width, 0.1, 0.0001), _width, ChannelSimulation, (PINNED_DEPTH,))
