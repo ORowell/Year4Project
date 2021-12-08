@@ -2,9 +2,12 @@
 \usepackage[utf8]{inputenc}
 \usepackage[margin=1in]{geometry}
 \usepackage{crop,graphicx,amsmath,array,color,amssymb,flushend,stfloats,amsthm,chngpage,times,fancyhdr,lipsum,lastpage}
+\usepackage{subcaption}
 \numberwithin{equation}{section}
 \usepackage[backend=biber,sorting=none]{biblatex}
 \addbibresource{references.bib}
+
+\renewcommand{\bottomfraction}{0.5}
 
 %%%%%%%%%%%%   Header and Footer  %%%%%%%%%%%%%
 \pagestyle{fancy}
@@ -149,14 +152,41 @@ Figure~\ref{fig:channel_system} shows a section of this system in the simplest c
 In reality, this is a 3d system with the vortices coming out of the page though the block of superconductor. However, as long as the weakly pinning layer is thin, we only need to consider a single 2d plane as the position of the vortices will not vary much through the system \cite{Gartlan2020NovelFibres}.
  
 \subsection{Critical shear}
-An important quantity of the channel system is the critical shear - the minimum applied force required for the particles to flow along the channel. 
+An important quantity of the channel system is the critical shear - the minimum force from the applied current required for the vortices to flow along the channel. For forces below this, the vortices will remain in the wells of the washboard potential created by the pinned vortices as shown in figure~\ref{fig:washboard_f0}. The addition of the constant Lorentz force is a linear increase to the potential causing these wells to "tip", thus reducing there size. Eventually, for some $\mathbf{F}=\mathbf{F}_c$, the potential wells cease to be wells at all and the vortices will begin to flow along the channel as seen in figure~\ref{fig:washboard_fc} \cite{Gartlan2020NovelFibres, Watkins2016DensitySuperconductors}. We can also expect that for $\mathbf{F}\gg\mathbf{F}_c$, the original washboard will be negligible compared to the potential due to $\mathbf{F}$ and the vortices will flow as if only driven by the constant Lorentz force.
+\begin{figure}[htb]
+\centering
+\begin{subfigure}[t]{.33\textwidth}
+  \centering
+  \includegraphics[width=.9\linewidth]{results/Figures/washboard-f0.png}
+  \caption{$\mathbf{F}=0$}
+  \label{fig:washboard_f0}
+\end{subfigure}
+\hfill
+\begin{subfigure}[t]{.33\textwidth}
+  \centering
+  \includegraphics[width=.9\linewidth]{results/Figures/washboard-f.png}
+  \caption{$0<\mathbf{F}<\mathbf{F}_c$}
+  \label{fig:washboard_f}
+\end{subfigure}
+\hfill
+\begin{subfigure}[t]{.33\textwidth}
+  \centering
+  \includegraphics[width=.9\linewidth]{results/Figures/washboard-fc.png}
+  \caption{$\mathbf{F}=\mathbf{F}_c$}
+  \label{fig:washboard_fc}
+\end{subfigure}
+\caption{Washboard model of the potential for differing applied forces up to the critical shear  }.
+\label{fig:washboard}
+\end{figure}
+
+This quantity is a useful one to consider due to it's ease of measurability, both experimentally and numerically as will be seen in section~\ref{sec:comp_crit_chear}. A range of currents can be applied to the system and the long-term motion of the vortices (if any) measured to find a cut off point $\mathbf{F}_c$ followed by a tend towards an asymptote $\mathbf{F} \propto \mathbf{v}$ assuming the existence of a terminal velocity.
 
 \section{Simulation method}
 \subsection{Molecular dynamics}
 
 \section{Simulation validation}
 \subsection{Ground state}
-\subsection{Comparison to critical shear}
+\subsection{Comparison to critical shear} \label{sec:comp_crit_chear}
 Using equation~\ref{eqn:vortex_force}, the potential due to a line of pinned vortices along the x-axis of separation $a_x$ can be written as \cite{Watkins2016DensitySuperconductors}
 \begin{equation}
     V_L(x, y) = \frac{f_0}{\lambda}\sum_{n=-\infty}^\infty K_0 \left( \frac{\sqrt{(x + na_x)^2 + y^2}}{\lambda} \right).
