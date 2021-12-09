@@ -242,10 +242,10 @@ def ground_state_from_rand():
     # sim.add_triangular_lattice((0, 0), 2, 2)
     sim.create_random_vortices(4, seed=120)
     
-    result = sim.run_sim(50, 0.01, 0)
+    result = sim.run_sim(15, 0.01, 0)
     
     animator = SimAnimator()
-    animator.animate(result, 'groundstate_rand_start.gif', 10)
+    animator.animate(result, 'groundstate_rand_start.gif', 2)
     
 def many_vortices():
     sim = Simulation(15, 10, 1, 1)
@@ -258,6 +258,6 @@ def many_vortices():
     animator.animate(result, 'lots.gif')
     
 if __name__ == '__main__':
-    ground_state()
+    # ground_state()
     ground_state_from_rand()
     # many_vortices()
