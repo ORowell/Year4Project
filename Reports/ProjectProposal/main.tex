@@ -175,18 +175,56 @@ An important quantity of the channel system is the critical shear - the minimum 
   \caption{$\mathbf{F}=\mathbf{F}_c$}
   \label{fig:washboard_fc}
 \end{subfigure}
-\caption{Washboard model of the potential for differing applied forces up to the critical shear  }.
+\caption{Washboard model of the potential for differing applied forces up to the critical shear}.
 \label{fig:washboard}
 \end{figure}
 
 This quantity is a useful one to consider due to it's ease of measurability, both experimentally and numerically as will be seen in section~\ref{sec:comp_crit_chear}. A range of currents can be applied to the system and the long-term motion of the vortices (if any) measured to find a cut off point $\mathbf{F}_c$ followed by a tend towards an asymptote $\mathbf{F} \propto \mathbf{v}$ assuming the existence of a terminal velocity.
 
 \section{Simulation method}
+Investigation of the channel system is done by simulating it through the use of molecular dynamics. This is done through integrating the equations of motion for each vortex using python with the numpy package. The Bessel function $K_1$ was provided through the scipy special functions library.
 \subsection{Molecular dynamics}
+In the case of large-$\kappa$, each vortex can be considered as a particle and we can use the Langevin equation, which in the case of 0 temperature is given by
+\begin{equation}
+    m\ddot{\mathbf{x}} = \mathbf{F} - \eta\dot{\mathbf{x}}, \label{eqn:langevin}
+\end{equation}
+where $\eta$ is a viscous drag on a vortex due to dissipative forces such as current flowing through the cores of the vortices which are in a non-superconducting state \cite{Bardeen1965TheorySuperconductors, Watkins2016DensitySuperconductors}. This applies to each free vortex in the system leading to a system of $2N$ coupled differential equations in the case where we take the vortices to be straight throughout the superconductor.
+
+We firstly assume that the effect of this $\eta$ is much greater than that of the inertial term $m\ddot{\mathbf{x}}$, such that we can take $m=0$ so that equation~\ref{eqn:langevin}
+\begin{equation}
+    \dot{\mathbf{x}} = \frac{1}{\eta}\mathbf{F}. \label{eqn:langevin_ovdamp}
+\end{equation}
+This is commonly called the over damped Langevin equation and effectively assumes the particles instantly reach terminal velocity \cite{Poole2014Superconductivity}.
+Integration of this equation is done using the Euler method to give the iterative equation
+\begin{equation}
+    \mathbf{x}_{n+1} = \mathbf{x}_n + \frac{\Delta t}{\eta}\mathbf{F}_n,
+\end{equation}
+where $\Delta t$ is some small time step at which forces are calculated and applied to the vortices.
+
+The total force $\mathbf{F}$ in equation~\ref{eqn:langevin_ovdamp}, can be split into three contributing forces
+\begin{equation}
+    \mathbf{F} = \mathbf{F}_{vv} + \mathbf{F}_L + \mathbf{F}_I
+\end{equation}
+where:
+\begin{itemize}
+    \item $\mathbf{F}_{vv}$ is the force due to the vortex-vortex interaction. This is a sum of each individual force between the vortex being considered and every other vortex in the system as given by equation~\ref{eqn:vortex_force}.
+    \item $\mathbf{F}_L$ is the force due to the lattice of pinned vortices. Most simplistically, this force is done by the same calculation as for $\mathbf{F}_{vv}$ however due to the large number of vortex interactions this requires, a more efficient, analytical form can be used instead as which is discussed later in section~\ref{sec:analytic_chan}.
+    \item $\mathbf{F}_I$ is the Lorentz force due to the applied current. While this can be calculated using equation~\ref{eqn:lorentz_f}, since this does not vary between vortices or over time, the resulting constant force can instead just be applied to each vortex.
+\end{itemize}
+
+\subsection{Optimisations}
+Whilst physically, the channel system is very long and so contains many vortices, this is infeasible to simulate numerically. Instead periodic boundary conditions are used at either end of the channel where any particles that flow off the end are wrapped to the other side. In order to reduce end effects this would lead to, multiple of images of the system are produced beyond the periodic boundaries. A force is then applied to each real vortex from the images as well as other real vortices.
+
+The calculation of $\mathbf{F}_{vv}$ (and also $\mathbf{F}_L$ when done vortex by vortex) involves $N^2$ individual calculations of the repulsive force. These each involve calculating the value of the Bessel function $K_0$ which is very computationally expensive. To reduce this, a cutoff is used, beyond which it is assumed that any interactions are negligible and so the force taken to be 0. This means that the number of calls to the Bessel function is now $\sim N$ allowing a larger number of vortices to be simulated. However, since the number of vortices that a given vortex interacts with will grow as $r^2$, a cutoff of 9 lattice spacings was used to ensure that the next shell of discounted vortices is negligible, even if individual vortices closer than this exert very small forces.
+
+To improve precision as well as making the results easier to read, constants are chosen such that the simulation generally works on order $1$. To do this we choose $\lambda = \eta = f_0 = a_x = 1$ which also gives $a_y = \frac{\sqrt{3}}{2}$.
 
 \section{Simulation validation}
+It is important to ensure that the simulation that has been written is behaving correctly. This can be done through a few tests that have known results and comparing these to those produced by the code.
 \subsection{Ground state}
+The first and most simple of these is the production of the ground state. 
 \subsection{Comparison to critical shear} \label{sec:comp_crit_chear}
+\subsubsection{Analytical form of the channel lattice} \label{sec:analytic_chan}
 Using equation~\ref{eqn:vortex_force}, the potential due to a line of pinned vortices along the x-axis of separation $a_x$ can be written as \cite{Watkins2016DensitySuperconductors}
 \begin{equation}
     V_L(x, y) = \frac{f_0}{\lambda}\sum_{n=-\infty}^\infty K_0 \left( \frac{\sqrt{(x + na_x)^2 + y^2}}{\lambda} \right).
