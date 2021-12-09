@@ -25,8 +25,21 @@ ary = np.random.uniform(9, 20, 1000)
     
     return min(timeit.repeat(test, setup, number=10000))
 
+def random_bessel_time_k1():
+    setup = """
+from scipy.special import k1
+import numpy as np
+
+ary = np.random.uniform(9, 20, 1000)
+    """
+    
+    test = 'k1(ary)'
+    
+    return min(timeit.repeat(test, setup, number=10000))
+
 # print(zero_bessel_time())
-# print(random_bessel_time())
+print(random_bessel_time())
+print(random_bessel_time_k1())
 
 import numpy as np
 from scipy.special import kn
@@ -58,8 +71,8 @@ def v_l_fourier_analytic(kx, ky, N=100):
     return total
 
     
-n = 10000
-x=np.linspace(0, 15, 100)
-a = v_l_true(x, 1, n)
-b = v_l_analytic(x, 1, n)
-print(a-b)
+# n = 10000
+# x=np.linspace(0, 15, 100)
+# a = v_l_true(x, 1, n)
+# b = v_l_analytic(x, 1, n)
+# print(a-b)

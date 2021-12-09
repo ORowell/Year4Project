@@ -187,7 +187,7 @@ class Simulation:
     
     @staticmethod
     def _bessel_func(val):
-        return scipy_s.kn(1, val)
+        return scipy_s.k1(val)
     
     def _wrap_particles(self):
         """Wrap any vortices that have left the simulated cell back to the other side"""
