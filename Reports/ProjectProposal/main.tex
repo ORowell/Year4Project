@@ -7,7 +7,7 @@
 \usepackage[backend=biber,sorting=none]{biblatex}
 \addbibresource{references.bib}
 
-\renewcommand{\bottomfraction}{0.5}
+\renewcommand{\bottomfraction}{0.6}
 
 %%%%%%%%%%%%   Header and Footer  %%%%%%%%%%%%%
 \pagestyle{fancy}
@@ -222,7 +222,28 @@ To improve precision as well as making the results easier to read, constants are
 \section{Simulation validation}
 It is important to ensure that the simulation that has been written is behaving correctly. This can be done through a few tests that have known results and comparing these to those produced by the code.
 \subsection{Ground state}
-The first and most simple of these is the production of the ground state. 
+The first and most simple of these is the production of the ground state. Vortices placed in a triangular lattice with spacing $a_x=1$, $a_y=\frac{\sqrt{3}}{2}$ should remain in this state. Similarly, vortices placed in random locations should also arrange themselves into a triangular lattice.
+
+This is done first with only 4 real vortices placed at $(0, 0)$, $(1, 0)$, $(\frac{1}{2}, \frac{\sqrt{3}}{2})$ and $(\frac{3}{2}, \frac{\sqrt{3}}{2})$ using various numbers of images in each direction. Note that if imaging is done 6 times each way, then a total of $13^2-1=168$ image grids are created. Table~\ref{tab:dist_from_images} shows the effect of the number of images on how closely to the ground state the simulation remained at.
+\begin{table}[htb]
+    \centering
+    \begin{tabular}{c|c}
+        Images used & Average distance moved from ground state \\
+        \hline
+        1 & $1.12\times 10^{-2}$ \\
+        2 & $1.59\times 10^{-3}$ \\
+        4 & $3.04\times 10^{-5}$ \\
+        6 & $5.63\times 10^{-7}$ \\
+        8 & $1.03\times 10^{-8}$ \\
+        10 & $1.90\times 10^{-10}$ \\
+    \end{tabular}
+    \caption{Average distance away from the ground state travelled by vortices for differing numbers of image vortices in each direction.}
+    \label{tab:dist_from_images}
+\end{table}
+From this we see that the simulation does in fact remain in the ground state, provided enough images are used. Fewer images reduces accuracy as without the full repulsion of a surrounding ground state lattice, the repulsion between the 4 real vortices will cause them to spread out slightly more than the ground state.
+
+
+
 \subsection{Comparison to critical shear} \label{sec:comp_crit_chear}
 \subsubsection{Analytical form of the channel lattice} \label{sec:analytic_chan}
 Using equation~\ref{eqn:vortex_force}, the potential due to a line of pinned vortices along the x-axis of separation $a_x$ can be written as \cite{Watkins2016DensitySuperconductors}
