@@ -8,6 +8,7 @@
 \addbibresource{references.bib}
 
 \renewcommand{\bottomfraction}{0.6}
+\allowdisplaybreaks
 
 %%%%%%%%%%%%   Header and Footer  %%%%%%%%%%%%%
 \pagestyle{fancy}
@@ -151,7 +152,7 @@ Figure~\ref{fig:channel_system} shows a section of this system in the simplest c
 \end{figure}
 In reality, this is a 3d system with the vortices coming out of the page though the block of superconductor. However, as long as the weakly pinning layer is thin, we only need to consider a single 2d plane as the position of the vortices will not vary much through the system \cite{Gartlan2020NovelFibres}.
  
-\subsection{Critical shear}
+\subsection{Critical shear} \label{sec:critical_shear}
 An important quantity of the channel system is the critical shear - the minimum force from the applied current required for the vortices to flow along the channel. For forces below this, the vortices will remain in the wells of the washboard potential created by the pinned vortices as shown in figure~\ref{fig:washboard_f0}. The addition of the constant Lorentz force is a linear increase to the potential causing these wells to "tip", thus reducing there size. Eventually, for some $\mathbf{F}=\mathbf{F}_c$, the potential wells cease to be wells at all and the vortices will begin to flow along the channel as seen in figure~\ref{fig:washboard_fc} \cite{Gartlan2020NovelFibres, Watkins2016DensitySuperconductors}. We can also expect that for $\mathbf{F}\gg\mathbf{F}_c$, the original washboard will be negligible compared to the potential due to $\mathbf{F}$ and the vortices will flow as if only driven by the constant Lorentz force.
 \begin{figure}[htb]
 \centering
@@ -203,19 +204,19 @@ where $\Delta t$ is some small time step at which forces are calculated and appl
 
 The total force $\mathbf{F}$ in equation~\ref{eqn:langevin_ovdamp}, can be split into three contributing forces
 \begin{equation}
-    \mathbf{F} = \mathbf{F}_{vv} + \mathbf{F}_L + \mathbf{F}_I
+    \mathbf{F} = \mathbf{F}_{vv} + \mathbf{F}_P + \mathbf{F}_I
 \end{equation}
 where:
 \begin{itemize}
     \item $\mathbf{F}_{vv}$ is the force due to the vortex-vortex interaction. This is a sum of each individual force between the vortex being considered and every other vortex in the system as given by equation~\ref{eqn:vortex_force}.
-    \item $\mathbf{F}_L$ is the force due to the lattice of pinned vortices. Most simplistically, this force is done by the same calculation as for $\mathbf{F}_{vv}$ however due to the large number of vortex interactions this requires, a more efficient, analytical form can be used instead as which is discussed later in section~\ref{sec:analytic_chan}.
+    \item $\mathbf{F}_P$ is the force due to the pinned vortex lattice. Most simplistically, this force is done by the same calculation as for $\mathbf{F}_{vv}$ however due to the large number of vortex interactions this requires, a more efficient, analytical form can be used instead as which is discussed later in section~\ref{sec:analytic_chan}.
     \item $\mathbf{F}_I$ is the Lorentz force due to the applied current. While this can be calculated using equation~\ref{eqn:lorentz_f}, since this does not vary between vortices or over time, the resulting constant force can instead just be applied to each vortex.
 \end{itemize}
 
 \subsection{Optimisations}
 Whilst physically, the channel system is very long and so contains many vortices, this is infeasible to simulate numerically. Instead periodic boundary conditions are used at either end of the channel where any particles that flow off the end are wrapped to the other side. In order to reduce end effects this would lead to, multiple of images of the system are produced beyond the periodic boundaries. A force is then applied to each real vortex from the images as well as other real vortices.
 
-The calculation of $\mathbf{F}_{vv}$ (and also $\mathbf{F}_L$ when done vortex by vortex) involves $N^2$ individual calculations of the repulsive force. These each involve calculating the value of the Bessel function $K_0$ which is very computationally expensive. To reduce this, a cutoff is used, beyond which it is assumed that any interactions are negligible and so the force taken to be 0. This means that the number of calls to the Bessel function is now $\sim N$ allowing a larger number of vortices to be simulated. However, since the number of vortices that a given vortex interacts with will grow as $r^2$, a cutoff of 9 lattice spacings was used to ensure that the next shell of discounted vortices is negligible, even if individual vortices closer than this exert very small forces.
+The calculation of $\mathbf{F}_{vv}$ (and also $\mathbf{F}_P$ when done vortex by vortex) involves $N^2$ individual calculations of the repulsive force. These each involve calculating the value of the Bessel function $K_0$ which is very computationally expensive. To reduce this, a cutoff is used, beyond which it is assumed that any interactions are negligible and so the force taken to be 0. This means that the number of calls to the Bessel function is now $\sim N$ allowing a larger number of vortices to be simulated. However, since the number of vortices that a given vortex interacts with will grow as $r^2$, a cutoff of 9 lattice spacings was used to ensure that the next shell of discounted vortices is negligible, even if individual vortices closer than this exert very small forces.
 
 To improve precision as well as making the results easier to read, constants are chosen such that the simulation generally works on order $1$. To do this we choose $\lambda = \eta = f_0 = a_x = 1$ which also gives $a_y = \frac{\sqrt{3}}{2}$.
 
@@ -224,7 +225,7 @@ It is important to ensure that the simulation that has been written is behaving 
 \subsection{Ground state}
 The first and most simple of these is the production of the ground state. Vortices placed in a triangular lattice with spacing $a_x=1$, $a_y=\frac{\sqrt{3}}{2}$ should remain in this state. Similarly, vortices placed in random locations should also arrange themselves into a triangular lattice.
 
-This is done first with only 4 real vortices placed at $(0, 0)$, $(1, 0)$, $(\frac{1}{2}, \frac{\sqrt{3}}{2})$ and $(\frac{3}{2}, \frac{\sqrt{3}}{2})$ using various numbers of images in each direction. Note that if imaging is done 6 times each way, then a total of $13^2-1=168$ image grids are created. Table~\ref{tab:dist_from_images} shows the effect of the number of images on how closely to the ground state the simulation remained at.
+This is done first with only four real vortices placed at $(0, 0)$, $(1, 0)$, $(\frac{1}{2}, \frac{\sqrt{3}}{2})$ and $(\frac{3}{2}, \frac{\sqrt{3}}{2})$ using various numbers of images in each direction. Note that if imaging is done 6 times each way, then a total of $13^2-1=168$ image grids are created. Table~\ref{tab:dist_from_images} shows the effect of the number of images on how closely to the ground state the simulation remained at.
 \begin{table}[htb]
     \centering
     \begin{tabular}{c|c}
@@ -240,13 +241,33 @@ This is done first with only 4 real vortices placed at $(0, 0)$, $(1, 0)$, $(\fr
     \caption{Average distance away from the ground state travelled by vortices for differing numbers of image vortices in each direction.}
     \label{tab:dist_from_images}
 \end{table}
-From this we see that the simulation does in fact remain in the ground state, provided enough images are used. Fewer images reduces accuracy as without the full repulsion of a surrounding ground state lattice, the repulsion between the 4 real vortices will cause them to spread out slightly more than the ground state.
+From this we see that the simulation does in fact remain in the ground state, provided enough images are used. Fewer images reduces accuracy as without the full repulsion of a surrounding ground state lattice, the repulsion between the four real vortices will cause them to spread out slightly more than the ground state.
+\begin{figure}[htb]
+\centering
+\begin{subfigure}[t]{.49\textwidth}
+    \centering
+    \includegraphics[width=.9\linewidth]{results/gifs/ground_state_rand_000.png}
+    \caption{Initial random state}
+    \label{fig:ground_rand_000}
+\end{subfigure}
+\hfill
+\begin{subfigure}[t]{.49\textwidth}
+    \centering
+\includegraphics[width=.9\linewidth]{results/gifs/ground_state_rand_749.png}
+    \caption{State after 15 seconds}
+    \label{fig:ground_rand_749}
+\end{subfigure}
+\caption{Simulation of four randomly placed vortices finding the ground state.}
+\label{fig:ground_rand}
+\end{figure}
 
+Next four vortices were initially placed in random positions and the simulation run to check that they would find the ground state. The positions of these initially and after 15 seconds can be seen in figure~\ref{fig:ground_rand} which, as expected, form a triangular lattice.
 
+\subsection{Critical shear of the channel system} \label{sec:comp_crit_chear}
+Given the success of these tests, we now look to simulating the channel system by including pinned vortices. As discussed in section~\ref{sec:critical_shear}, a good test to validate this system is the value for the critical shear that it produces. However, we first need a true value which we can compare to. This is done by replacing the lattice of vortices exerting a force given by equation~\ref{eqn:vortex_force}, with a single force from the channel.
 
-\subsection{Comparison to critical shear} \label{sec:comp_crit_chear}
 \subsubsection{Analytical form of the channel lattice} \label{sec:analytic_chan}
-Using equation~\ref{eqn:vortex_force}, the potential due to a line of pinned vortices along the x-axis of separation $a_x$ can be written as \cite{Watkins2016DensitySuperconductors}
+Start by using equation~\ref{eqn:vortex_force} to get the potential due to a line of pinned vortices along the x-axis of separation $a_x$ as \cite{Watkins2016DensitySuperconductors}
 \begin{equation}
     V_L(x, y) = \frac{f_0}{\lambda}\sum_{n=-\infty}^\infty K_0 \left( \frac{\sqrt{(x + na_x)^2 + y^2}}{\lambda} \right).
 \end{equation}
@@ -269,7 +290,6 @@ gives
     \tilde{V}_L(k_x, k_y) &= \frac{1}{2}\sum_{n=-\infty}^\infty e^{-ina_xk_x} \int_0^\infty\frac{\mathrm{d}t}{t}e^{-t} \sqrt{\frac{4\lambda^2t}{2}}e^{\frac{4\lambda^2t(ik_x)^2}{4}} \sqrt{\frac{4\lambda^2t}{2}}e^{\frac{4\lambda^2t(ikyx)^2}{4}} \\
     &= \lambda^2\sum_{n=-\infty}^\infty e^{-ina_xk_x} \int_0^\infty\mathrm{d}te^{-t}e^{-\lambda^2k_x^2t}e^{-\lambda^2k_y^2t} \\
     &= \lambda^2\sum_{n=-\infty}^\infty e^{-ina_xk_x} \left[\frac{-1}{1+\lambda^2k_x^2+\lambda^2k_y^2} e^{-\left(1+\lambda^2k_x^2+\lambda^2k_y^2\right)t}\right]_0^\infty\ \\
-    &= \lambda^2\sum_{n=-\infty}^\infty e^{-ina_xk_x} \frac{1}{1+\lambda^2k_x^2+\lambda^2k_y^2} \cdot e^0 \\
     &= \sum_{n=-\infty}^\infty \frac{e^{-ina_xk_x}}{\frac{1}{\lambda^2}+k_x^2+k_y^2}.
 \end{align*}
 This is then Fourier transformed back using the formula for the Dirac comb
@@ -283,7 +303,7 @@ This gives
     \delta\left(k_x - \frac{2\pi n}{a_x}\right) \int_{-\infty}^\infty\frac{\mathrm{d}k_y}{\sqrt{2\pi}} \frac{e^{-ik_yy}}{\frac{1}{\lambda^2}+k_x^2+k_y^2} \\
      &= \sum_{n=-\infty}^\infty e^{-\frac{2\pi ixn}{a_x}}\frac{1}{a_x} \int_{-\infty}^\infty\frac{e^{-ik_yy}} {\frac{1}{\lambda^2}+\left(\frac{2\pi n}{a_x}\right)^2+k_y^2}\mathrm{d}k_y.
 \end{align*}
-Letting $Q_n^2 = \frac{1}{\lambda^2} + \left(\frac{2\pi n}{a_x}\right)^2$ and doing the remaining integral gives
+Letting $Q_n^2 = \frac{1}{\lambda^2} + \left(\frac{2\pi n}{a_x}\right)^2$ and doing the remaining integral finally gives
 \begin{align}
     V_L(x, y) &= \frac{1}{a_x}\sum_{n=-\infty}^\infty e^{-\frac{2\pi in}{a_x}x} \int_{-\infty}^\infty\frac{e^{-ik_yy}} {Q_n^2+k_y^2}\mathrm{d}k_y \nonumber \\
     &= \frac{1}{a_x}\sum_{n=-\infty}^\infty e^{-\frac{2\pi in}{a_x}x}\cdot \frac{\pi}{Q_n}e^{-|y|Q_n} \nonumber \\
@@ -305,20 +325,20 @@ Letting $\alpha_n = \frac{1}{Q_n}\frac{1}{1-(-1)^ne^{-Q_na_y}}$ finally gives
 There are now two cases to consider - those for a channel with an odd or even number of vortices. This is because if there is an even number of vortices across the channel, the pinned lattices either side of the channel must be offset from each other.
 In the odd case
 \begin{align}
-    V_C(x, y) &= V_A(x, y) + V_A(x, w-y) \nonumber \\
-    &= \frac{\pi}{a_x}\sum_{n=-\infty}^\infty\alpha_n e^{-i\frac{2\pi n}{a_x}x} \left(e^{-Q_ny}+e^{-Q_n(w-y)}\right), \label{eqn:V_Codd}
+    V_P(x, y) &= V_A(x, y) + V_A(x, w-y) \nonumber \\
+    &= \frac{\pi}{a_x}\sum_{n=-\infty}^\infty\alpha_n e^{-i\frac{2\pi n}{a_x}x} \left(e^{-Q_ny}+e^{-Q_n(w-y)}\right), \label{eqn:V_Podd}
 \end{align}
 where $w = 2a_y, 4a_y, \ldots$ is the channel width.
 
 Similarly, in the even case
 \begin{align}
-    V_C(x, y) &= V_A(x, y) + V_A(x+\frac{a_x}{2}, w-y) \nonumber \\
+    V_P(x, y) &= V_A(x, y) + V_A(x+\frac{a_x}{2}, w-y) \nonumber \\
     &= \frac{\pi}{a_x}\sum_{n=-\infty}^\infty\alpha_n e^{-i\frac{2\pi n}{a_x}x} \left(e^{-Q_ny}+e^{-i\frac{2\pi n}{a_x}\frac{a_x}{2}}e^{-Q_n(w-y)}\right) \nonumber \\
-    &= \frac{\pi}{a_x}\sum_{n=-\infty}^\infty\alpha_n e^{-i\frac{2\pi n}{a_x}x} \left(e^{-Q_ny}+(-1)^ne^{-Q_n(w-y)}\right. \label{eqn:V_Ceven}
+    &= \frac{\pi}{a_x}\sum_{n=-\infty}^\infty\alpha_n e^{-i\frac{2\pi n}{a_x}x} \left(e^{-Q_ny}+(-1)^ne^{-Q_n(w-y)}\right). \label{eqn:V_Peven}
 \end{align}
-So by combining equations~\ref{eqn:V_Codd} and \ref{eqn:V_Ceven}, $V_C$ can be written as
+So by combining equations~\ref{eqn:V_Podd} and \ref{eqn:V_Peven}, $V_P$ can be written as
 \begin{equation}
-    V_C(x, y) = \frac{\pi}{a_x}\sum_{n=-\infty}^\infty\alpha_n e^{-i\frac{2\pi n}{a_x}x} \left(e^{-Q_ny}+\tau_ne^{-Q_n(w-y)}\right), \label{eqn:V_Ccomb}
+    V_P(x, y) = \frac{\pi}{a_x}\sum_{n=-\infty}^\infty\alpha_n e^{-i\frac{2\pi n}{a_x}x} \left(e^{-Q_ny}+\tau_ne^{-Q_n(w-y)}\right), \label{eqn:V_Pcomb}
 \end{equation}
 with
 \begin{equation}
@@ -329,9 +349,9 @@ with
     \end{array}
     \right ..
 \end{equation}
-The summation in equation~\ref{eqn:V_Ccomb} can be split in two using $Q_n = Q_{-n}$, $\alpha_n = \alpha_{-n}$, $Q_0 = \frac{1}{\lambda}$ and $\tau_0 = 1$ to give
+The summation in equation~\ref{eqn:V_Pcomb} can be split in two using $Q_n = Q_{-n}$, $\alpha_n = \alpha_{-n}$, $Q_0 = \frac{1}{\lambda}$ and $\tau_0 = 1$ to give
 \begin{align}
-    V_C(x, y) &= \frac{\pi}{a_x} \left[1\cdot\alpha_0\left(e^{-\frac{y}{\lambda}}+e^{-\frac{w-y}{\lambda}}\right) +\sum_{n=1}^\infty\alpha_n\left(e^{-Q_ny}+\tau_ne^{-Q_n(w-y)}\right) \left(e^{-i\frac{2n\pi}{a_x}x}+e^{-i\frac{2(-n)\pi}{a_x}x}\right) \right] \nonumber \\
+    V_P(x, y) &= \frac{\pi}{a_x} \left[1\cdot\alpha_0\left(e^{-\frac{y}{\lambda}}+e^{-\frac{w-y}{\lambda}}\right) +\sum_{n=1}^\infty\alpha_n\left(e^{-Q_ny}+\tau_ne^{-Q_n(w-y)}\right) \left(e^{-i\frac{2n\pi}{a_x}x}+e^{-i\frac{2(-n)\pi}{a_x}x}\right) \right] \nonumber \\
     &= V_0(y) + \frac{2\pi}{a_x}\sum_{n=1}^\infty\alpha_n\cos\left(\frac{2\pi nx}{a_x}\right) \left(e^{-Q_ny}+\tau_ne^{-Q_n(w-y)}\right),
 \end{align}
 where
@@ -339,9 +359,51 @@ where
     V_0(y) = \frac{\alpha_0\pi}{a_x}\left(e^{-\frac{y}{\lambda}}+e^{-\frac{w-y}{\lambda}}\right).
 \end{equation}
 
-\section{\#\#\#Next steps}
-\subsection{Self-organising criticality}
-\subsection{\#\#\#New system}
+We consider the simplest case of a channel with line of free vortices and width $w=2a_y$. By symmetry, the force in $y$ must be $0$ so the particles will remain in the centre of the channel with position $y=\frac{\sqrt{3}}{2}$.
+Using $\mathbf{F_P} = -\nabla V_P$ gives the force in the x-direction to be
+\begin{align}
+    F_{Px} &= \frac{d}{dx}V_P(x, \frac{\sqrt{3}}{2}) \nonumber \\
+    &= \frac{d}{dx}\left(V_0\left(\frac{\sqrt{3}}{2}\right) + \frac{2\pi}{a_x}\sum_{n=1}^\infty\alpha_n\cos\left(\frac{2\pi nx}{a_x}\right) \left(e^{-Q_n\frac{\sqrt{3}}{2}}+e^{-Q_n(\sqrt{3}-\frac{\sqrt{3}}{2})}\right)\right) \nonumber \\
+    &= 8\pi^2\sum_{n=1}^\infty\alpha_nn\sin(2\pi nx) e^{-Q_n\frac{\sqrt{3}}{2}}. \label{eqn:F_Px}
+\end{align}
+
+We can notice that for large $n$, $Q_n\sim n$ which gives $\alpha_n\sim \frac{1}{n(1-(-1)^ne^{-n})}\sim\frac{1}{n}$ which means that the terms in the summation of equation~\ref{eqn:F_Px} converges like $e^{-n}$. Due to this fast convergence, for simplicity we will consider only the first term to give
+\begin{equation}
+    F_{Px} \approx 8\pi^2\alpha_1\sin(2\pi x) e^{-Q_1\frac{\sqrt{3}}{2}}. \label{eqn:F_Px_approx}
+\end{equation}
+The critical shear is therefore equal to the most negative value of this force to ensure that $F_P + F_I$ is always positive and the vortices can flow. Differentiating and solving gives the location of this minimum to be at $x=\frac{3}{4}$ - that is if a vortex gets more than three-quarters of the way between pinned vortices, then it will flow to the next potential well.
+
+Substituting this back into equation~\ref{eqn:F_Px_approx} then gives us a first approximation of the critical shear of $F_c \approx 0.0500164$. Whilst, the summation does converge very rapidly, numerical methods show that the accurate solution does require including higher order terms, If this is done then we get $F_c = 0.0500184$ \cite{Gartlan2020NovelFibres} as the true value for the critical shear.
+
+\subsubsection{Comparison to results from the simulation}
+
+
+\section{Next steps}
+\subsection{Self-organised criticality}
+In thermodynamics, a system near or at a phase transition is described as critical. Here small local disturbances can effect the entire system rather than only the region near the disturbance with an exponentially decaying effect elsewhere. Achieving such behaviour in thermodynamic systems requires fine tuning by external means so that the system may exist within the small critical region.
+
+However, this kind of behaviour can also be seen outside of thermodynamics in systems such as a sand pile. When grains of sand is slowly added on to the top of a pile they generally will just add to the size of the slope. However sometimes a single grain more causes an avalanche of sand to occur when the slope has reached a certain steepness. Such avalanches can range from very small if a limited slope has built up, to occasionally affecting up to the entire pile. What is notable here, is that such a system is naturally critical without any tuning of conditions as it brings itself to a state where large scale events can occur. This is called self-organised criticality (SOC), where a system is in a critical for a wide range of parameters or initial states \cite{Tang1993SOCState, Jensen1998Self-organizedSystems}.
+
+A key feature of SOC systems is the existence of power laws. Rather than the events being distributed by an exponential decay, they take the form $P(n)\sim n^{-\alpha}$, where in the case of the sand pile this could be the distribution of avalanches that contain $n$ grains. This distribution will reach a cut-off at which this power-law falls away based on a scale determined by - and due to - the finite size of the system. This form of distribution can be found in all self-organised critical systems to describe the magnitude or length of events within the system.
+
+It is also important that SOC has a distinct separation of timescales between the lengths of events and their occurrences. Events must be suitably spaced that they are distinguishable from each other rather than blend into a more constant macroscopic effect. This leads to SOC often involving a gradually increasing force that at some point becomes great enough to create sudden change in the system before building up again. The threshold at which an event occurs is unpredictable however, leading to the distribution of event sizes discussed previously \cite{Jensen1998Self-organizedSystems}.
+
+\subsection{Vortex avalanches}
+Previously, the pinning sites at which vortices are held have been assumed to exert a sufficiently large force on the vortices that a pinned vortex is immovable. However, such sites have a maximum pinning force, $F_p$ beyond which the vortex will escape the pinning site and flow elsewhere \cite{Poole2014Superconductivity}. In case where an applied force $F$ is just below $F_p$, we see the phenomenon of flux creep. Here, the vortices are almost able to escape their pinning sites and with a small random thermal kick, they are able to hop to the next pinning centre. This leads to the vortices slowly creeping in along in the direction of the applied force.
+
+However, in the case of low temperatures, such hopping very rarely occurs. This means that vortices will remain pinned near the edge of the superconductor at which they are created. This build up pushes vortices away from the edge to balance the pinning force. This creates a gradient of vortex density in near equilibrium with the force from the pinning centres \cite{Tang1993SOCState}. This finally balanced, self-correcting equilibrium leads to a self-organised criticality state in which if one vortex is displaced, it will lead to an avalanche of displaced vortices as it leaves behind a free pinning site and forces others out of other sites.
+
+These avalanches can have varying causes for them such as in \cite{Tang1993SOCState} where Tang discusses the case where events are caused by thermal fluctuations. However, there is no continuous addition of vortices to replace those that jump further in to the superconductor so the vortex gradient is not maintained and the system tends to a uniform distribution of vortices. Field et al. \cite{Field1995SuperconductingAvalanches} instead kept a constant gradient by slowly raising the applied magnetic field. This causes new vortices to be added to the edge of the superconductor, much in the same way as in the sand pile model discussed previously. The addition of these vortices, pushes the already existing vortices until an avalanche is triggered. After the avalanche, new vortices restore the vortex gradient again until another avalanche event occurs as we would expect in SOC. However, the slowly increasing applied field created an underlying flux flow which limited the resolution with which smaller avalanches could be detected
+
+\begin{figure}[htb]
+    \centering
+    \includegraphics[width=0.8\linewidth]{Reports/ProjectProposal/Resources/avalanche_system.png}
+    \caption{The vortex avalanche system. Crosses are randomly placed pinning sites, red dots are the location of the vortices. Vortices are slowly added to the left side of the system.}
+    \label{fig:avalanche_system}
+\end{figure}
+My project will be to investigate this system through an extension of the simulation code used previously. The avalanche system will be modelled by as shown in figure~\ref{fig:avalanche_system} using periodic boundaries in the $y$ direction. A new vortex will be added a random point on the left side and the system allowed to propagate. Any avalanches caused can be recorded and a new vortex added only when motion has ended. This ensures the separation of time scales discussed earlier as there is no danger of a second avalanche being started whilst another is still ongoing.
+
+The crosses in figure~\ref{fig:avalanche_system} are randomly placed pinning sites, towards which vortices are attracted. I will investigate the effects of different potentials with which to model these sites. This could involve adjusting the size and strength of the potential as well as its functional form such as Gaussian, step function or linear forms. These simulations will be used to produce phase plots such as those seen in \cite{Field1995SuperconductingAvalanches}. These give a probability distribution for differing sizes of avalanches from which the existence of power laws and scale invariance needed for SOC can be checked for.
 
 \printbibliography
 
