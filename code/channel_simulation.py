@@ -11,10 +11,10 @@ from abc import ABC, abstractmethod
 
 # Default values
 PINNED_DEPTH = 4
-CHANNEL_LENGTH = 1
+CHANNEL_LENGTH = 10
 T_MAX = 200
 T_STEPS = 1e4
-REPEATS = 0
+REPEATS = 1
 CUTOFF = 9
 ANALYTIC_TERMS = 1
 
@@ -171,7 +171,7 @@ def current_channel():
     width = 1
     force = 0.1
     
-    result = get_channel_result(width, force, ChannelSimulation, PINNED_DEPTH)
+    result = get_channel_result(width, force, ChannelSimulation, (PINNED_DEPTH,), force_sim=True)
     
     animator = ChannelSimAnimator()
     animator.animate(result, f'current_channel_{width}w.gif', 10)
@@ -310,7 +310,7 @@ if __name__ == '__main__':
     # plot_vels(np.arange(0, 0.1, 0.001), _width, ChannelSimulation, (PINNED_DEPTH,))
     plot_vels(np.arange(0, 0.1, 0.001), _width, AnalyticChannelSimulation, (ANALYTIC_TERMS,))
     
-    force_vals = np.linspace(ANALYTICAL_FC*0.99/_width, ANALYTICAL_FC*1.05/_width, 21)
+    force_vals = np.linspace(ANALYTICAL_FC*0.99/_width, ANALYTICAL_FC*1.05/_width, 201)
     # plot_vels(force_vals, _width, ChannelSimulation, (PINNED_DEPTH,)) # type: ignore
     force_vals = np.linspace(ANALYTICAL_FC*0.9/_width, ANALYTICAL_FC*1.1/_width, 201)
     plot_vels(force_vals, _width, AnalyticChannelSimulation, (ANALYTIC_TERMS,)) # type: ignore

@@ -227,14 +227,18 @@ class SimAnimator:
         return self._dots
     
 def ground_state():
-    sim = Simulation(2, 2, 6, 6)
+    images = 8
+    sim = Simulation(2, 2, images, images)
     
     sim.add_triangular_lattice((0, 0), 2, 2)
     
     result = sim.run_sim(0.2, 0.0001, 0)
     
-    animator = SimAnimator()
-    animator.animate(result, 'groundstate.gif', 10)
+    print(images)
+    print(np.mean(np.linalg.norm(result.values[-1] - result.values[0], axis=1)))
+    
+    # animator = SimAnimator()
+    # animator.animate(result, 'groundstate.gif', 10)
     
 def ground_state_from_rand():
     sim = Simulation(2, 2, 6, 6)
@@ -258,6 +262,6 @@ def many_vortices():
     animator.animate(result, 'lots.gif')
     
 if __name__ == '__main__':
-    # ground_state()
-    ground_state_from_rand()
+    ground_state()
+    # ground_state_from_rand()
     # many_vortices()
