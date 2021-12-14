@@ -352,7 +352,7 @@ with
 The summation in equation~\ref{eqn:V_Pcomb} can be split in two using $Q_n = Q_{-n}$, $\alpha_n = \alpha_{-n}$, $Q_0 = \frac{1}{\lambda}$ and $\tau_0 = 1$ to give
 \begin{align}
     V_P(x, y) &= \frac{\pi}{a_x} \left[1\cdot\alpha_0\left(e^{-\frac{y}{\lambda}}+e^{-\frac{w-y}{\lambda}}\right) +\sum_{n=1}^\infty\alpha_n\left(e^{-Q_ny}+\tau_ne^{-Q_n(w-y)}\right) \left(e^{-i\frac{2n\pi}{a_x}x}+e^{-i\frac{2(-n)\pi}{a_x}x}\right) \right] \nonumber \\
-    &= V_0(y) + \frac{2\pi}{a_x}\sum_{n=1}^\infty\alpha_n\cos\left(\frac{2\pi nx}{a_x}\right) \left(e^{-Q_ny}+\tau_ne^{-Q_n(w-y)}\right),
+    &= V_0(y) + \frac{2\pi}{a_x}\sum_{n=1}^\infty\alpha_n\cos\left(\frac{2\pi nx}{a_x}\right) \left(e^{-Q_ny}+\tau_ne^{-Q_n(w-y)}\right), \label{eqn:V_p_final}
 \end{align}
 where
 \begin{equation}
@@ -373,10 +373,52 @@ We can notice that for large $n$, $Q_n\sim n$ which gives $\alpha_n\sim \frac{1}
 \end{equation}
 The critical shear is therefore equal to the most negative value of this force to ensure that $F_P + F_I$ is always positive and the vortices can flow. Differentiating and solving gives the location of this minimum to be at $x=\frac{3}{4}$ - that is if a vortex gets more than three-quarters of the way between pinned vortices, then it will flow to the next potential well.
 
-Substituting this back into equation~\ref{eqn:F_Px_approx} then gives us a first approximation of the critical shear of $F_c \approx 0.0500164$. Whilst, the summation does converge very rapidly, numerical methods show that the accurate solution does require including higher order terms, If this is done then we get $F_c = 0.0500184$ \cite{Gartlan2020NovelFibres} as the true value for the critical shear.
+Substituting this back into equation~\ref{eqn:F_Px_approx} then gives us a first approximation of the critical shear of $F_c \approx 0.0500164$. Whilst, the summation does converge very rapidly, numerical methods show that the accurate solution does require including higher order terms, If this is done then from Gartlan the true value of the critical shear is $F_c = 0.0500184$ \cite{Gartlan2020NovelFibres}.
 
 \subsubsection{Comparison to results from the simulation}
+Figure~\ref{fig:big_vels} shows the simulated results of the channel when applying a range of Lorentz forces. These were done using a channel with ten vortices with one set of images in each direction with vortex-vortex interaction cutoff of nine lattice spacings. Each simulation was run for $200s$ using $10^4$ time steps. Figure~\ref{fig:big_vels_channel} shows the case where the channel was modelled using four layers of pinned vortices either side similar to that shown in figure~\ref{fig:channel_system}. In contrast, figure~\ref{fig:big_vels_analytic} was done using the force calculated from the derivatives of equation~\ref{eqn:V_p_final} and taking the $n=1$ term. This provides a much less computationally expensive way in which to simulate the channel, greatly speeding up simulation times.
 
+\begin{figure}[htb]
+\centering
+\begin{subfigure}[t]{.49\textwidth}
+    \centering
+    \includegraphics[width=.9\linewidth]{results/Figures/Width1_velocities_cutoff=9.png}
+    \caption{Simulation of channel using many stationary vortices}
+    \label{fig:big_vels_channel}
+\end{subfigure}
+\hfill
+\begin{subfigure}[t]{.49\textwidth}
+    \centering
+\includegraphics[width=.9\linewidth]{results/Figures/Width1_velocities_analytic_cutoff=9.png}
+    \caption{Simulation of the channel using the form found from section~\ref{sec:analytic_chan}.}
+    \label{fig:big_vels_analytic}
+\end{subfigure}
+\caption{Plots of the average vortex velocity for varying applied Lorentz forces.}
+\label{fig:big_vels}
+\end{figure}
+
+Both of these plots show the expected form of the $F$-$v$ plot discussed in section~\ref{sec:critical_shear}, tending towards $F\propto v$ for higher applied forces with a cutoff critical shear below which $v=0$. The velocities due to forces near the critical shear are shown in figure~\ref{fig:fc_vels} again for both channel simulation methods. Both cases give a value for $F_c$ of around $0.0502$, an error of $0.4\%$ from the true value. Below this, $v$ remains just above $0$ due to initial movement of the vortices up their potential wells before reaching a stationary equilibrium. Such a close value provides large confidence that the code is simulating the system correctly and to a high precision.
+
+However, both methods show a stepping behaviour, most noticeable in figure~\ref{fig:fc_vels} due to the smaller steps in $F$ but still visible in figure~\ref{fig:big_vels}. The cause of this is unclear and may just be a numerical error due to insufficient imaging grids, time steps or channel length. This would need to be investigated further should higher precision be required in such plots.
+
+\begin{figure}[htb]
+\centering
+\begin{subfigure}[t]{.49\textwidth}
+    \centering
+    \includegraphics[width=.9\linewidth]{results/Figures/Width1_velocities_Fc.png}
+    \caption{Simulation of the channel using pinned vortices.}
+    \label{fig:fc_vels_channel}
+\end{subfigure}
+\hfill
+\begin{subfigure}[t]{.49\textwidth}
+    \centering
+\includegraphics[width=.9\linewidth]{results/Figures/Width1_velocities_analytic_Fc.png}
+    \caption{Simulation of the channel using the functional channel potential}
+    \label{fig:fc_vels_analytic}
+\end{subfigure}
+\caption{Plots of the average velocity near the critical shear $F_c$.}
+\label{fig:fc_vels}
+\end{figure}
 
 \section{Next steps}
 \subsection{Self-organised criticality}
