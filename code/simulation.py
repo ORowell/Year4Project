@@ -13,9 +13,25 @@ HALF_ROOT_3 = np.sqrt(3)/2
 SAVE_LOCATION = 'results\\Simulation_results\\{cls.__name__}'
 FILE_LOCATION = SAVE_LOCATION + '\\{filename}'
 
-T = TypeVar('T', bound='SimResult')
+
+T = TypeVar('T', bound='PickleClass')
+class PickleClass:
+    def save(self, filename: str):
+        with open(FILE_LOCATION.format(cls=self.__class__, filename=filename), 'wb') as f:
+            pickle.dump(self, f)
+            
+    @classmethod
+    def load(cls: Type[T], filename: str, quiet=False) -> Optional[T]:
+        path = FILE_LOCATION.format(cls=cls, filename=filename)
+        if not os.path.exists(path):
+            if not quiet:
+                print(f'{path} not found')
+            return None
+        with open(FILE_LOCATION.format(cls=cls, filename=filename), 'rb') as f:
+            return pickle.load(f)
+
 @dataclass
-class SimResult:
+class SimResult(PickleClass):
     """Data class to store the results of a simulation"""
     values: np.ndarray
     dt: float
@@ -38,20 +54,6 @@ class SimResult:
         avg_diff = np.mean(diff, (0, 1))
         
         return avg_diff / self.dt
-    
-    def save(self, filename: str):
-        with open(FILE_LOCATION.format(cls=self.__class__, filename=filename), 'wb') as f:
-            pickle.dump(self, f)
-            
-    @classmethod
-    def load(cls: Type[T], filename: str, quiet=False) -> Optional[T]:
-        path = FILE_LOCATION.format(cls=cls, filename=filename)
-        if not os.path.exists(path):
-            if not quiet:
-                print(f'{path} not found')
-            return None
-        with open(FILE_LOCATION.format(cls=cls, filename=filename), 'rb') as f:
-            return pickle.load(f)
 
 
 class Simulation:
@@ -71,6 +73,7 @@ class Simulation:
         self.y_images = y_repeats
         
         self.current_force = np.array([0, 0])
+        self.random_gen: Optional[np.random.Generator] = None
     
     def add_vortex(self, x_pos: float, y_pos: float):
         """Add a vortex at the given x and y position"""
@@ -78,14 +81,20 @@ class Simulation:
         
     def create_random_vortices(self, num_vortices: int, seed: Optional[int] = None):
         """Create a given number of vortices at random locations"""
-        # Allow usage of a seed for consistent results, eg. benchmarking
-        if seed is not None:
-            np.random.seed(seed)
+        self.vortices = np.append(self.vortices,
+                                  self._generate_random_pos(num_vortices, seed), axis=0)
         
-        x_vals = np.random.uniform(0, self.x_size, (num_vortices, 1))
-        y_vals = np.random.uniform(0, self.y_size, (num_vortices, 1))
+    def _generate_random_pos(self, num_pos: int, seed: Optional[int] = None,
+                             min_x: float = 0, min_y: float = 0):
+        """Create a given number of random positions"""
+        if self.random_gen is None or seed is not None:
+            # Allow usage of a seed for consistent results, eg. benchmarking
+            self.random_gen = np.random.default_rng(seed)
         
-        self.vortices = np.append(x_vals, y_vals, axis=1)
+        x_vals = self.random_gen.uniform(min_x, self.x_size, (num_pos, 1))
+        y_vals = self.random_gen.uniform(min_y, self.y_size, (num_pos, 1))
+        
+        return np.append(x_vals, y_vals, axis=1)
         
     def add_triangular_lattice(self, corner, rows: int,
                                cols: int, offset: bool=False):
@@ -134,7 +143,7 @@ class Simulation:
     def _step(self, dt: float, cutoff: float):
         all_vortices = self._get_all_vortices()
         new_vortices = self.vortices.copy()
-        # TODO: Could be done by numpy without a loop?
+        # Could be done by numpy without a loop or in parallel?
         for i, vortex in enumerate(self.vortices):
             # Don't allow a vortex to act on itself
             acting_vortices = np.delete(all_vortices, i, axis=0)
@@ -144,7 +153,7 @@ class Simulation:
         
         new_vortices += dt * self.current_force
         self.vortices = new_vortices
-        self._wrap_particles()
+        self._handle_edges()
         
     def _get_all_vortices(self):
         """Get an array of every vortex (real or images) that could apply a force.
@@ -189,9 +198,10 @@ class Simulation:
     def _bessel_func(val):
         return scipy_s.k1(val)
     
-    def _wrap_particles(self):
-        """Wrap any vortices that have left the simulated cell back to the other side"""
-        self.vortices = np.mod(self.vortices, self.size_ary)
+    def _handle_edges(self):
+        """Handle any particles that have gone off the edge of the simulation.
+        By default they are just wrapped around to the other side."""
+        np.mod(self.vortices, self.size_ary, out=self.vortices)
         
         
 class SimAnimator:    
@@ -262,6 +272,6 @@ def many_vortices():
     animator.animate(result, 'lots.gif')
     
 if __name__ == '__main__':
-    ground_state()
-    # ground_state_from_rand()
+    # ground_state()
+    ground_state_from_rand()
     # many_vortices()

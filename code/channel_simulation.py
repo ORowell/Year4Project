@@ -44,7 +44,7 @@ class AnalyticalChannelSimResult(SimResult):
 class _AbstractChannelSimulation(Simulation, ABC):
     @classmethod
     @abstractmethod
-    def create_channel(cls, channel_width, channel_length, repeats, *args):
+    def create_channel(cls, channel_width, channel_length, repeats, *args) -> '_AbstractChannelSimulation':
         raise NotImplementedError
 
 
