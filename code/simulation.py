@@ -1,5 +1,6 @@
 from typing import Optional, Type, TypeVar
 import os.path
+from multiprocessing import Pool, pool
 import numpy as np
 import scipy.special as scipy_s
 import tqdm
@@ -74,6 +75,8 @@ class Simulation:
         
         self.current_force = np.array([0, 0])
         self.random_gen: Optional[np.random.Generator] = None
+        
+        self.force_extra_args = {} # type: ignore
     
     def add_vortex(self, x_pos: float, y_pos: float):
         """Add a vortex at the given x and y position"""
@@ -140,16 +143,23 @@ class Simulation:
             
         return SimResult(result_vals, dt, self.x_size, self.y_size, cutoff)
         
-    def _step(self, dt: float, cutoff: float):
+    def _step(self, dt: float, cutoff: float, p: Optional[pool.Pool] = None):
         all_vortices = self._get_all_vortices()
         new_vortices = self.vortices.copy()
-        # Could be done by numpy without a loop or in parallel?
-        for i, vortex in enumerate(self.vortices):
-            # Don't allow a vortex to act on itself
-            acting_vortices = np.delete(all_vortices, i, axis=0)
-            force = self._vortices_force(vortex, acting_vortices, cutoff)
-            
-            new_vortices[i] += dt*force
+        
+        if p is None:
+            for i, vortex in enumerate(self.vortices):
+                # Don't allow a vortex to act on itself
+                acting_vortices = np.delete(all_vortices, i, axis=0)
+                force = self._vortices_force(vortex, acting_vortices, cutoff, self.force_extra_args)
+                
+                new_vortices[i] += dt*force
+        else:
+            forces = p.starmap(self._vortices_force,
+                               ((vortex, np.delete(all_vortices, i, axis=0), cutoff, self.force_extra_args)
+                                for i, vortex in enumerate(self.vortices)))
+            for i, force in enumerate(forces):                
+                new_vortices[i] += dt*force
         
         new_vortices += dt * self.current_force
         self.vortices = new_vortices
@@ -178,7 +188,8 @@ class Simulation:
               
         return np.stack((x_images, y_images), axis=1)
     
-    def _vortices_force(self, vortex_pos, other_pos, cutoff):
+    @classmethod
+    def _vortices_force(cls, vortex_pos, other_pos, cutoff, extra_args: dict):
         rel_pos = vortex_pos - other_pos
         distances = np.linalg.norm(rel_pos, axis=1, keepdims=True)
         directions = rel_pos/distances
@@ -187,7 +198,7 @@ class Simulation:
         if cutoff:
             large_distances = distances > cutoff
             distances[large_distances] = 0
-        force_sizes = self._bessel_func(distances)
+        force_sizes = cls._bessel_func(distances)
         if cutoff:
             force_sizes[large_distances] = 0
         forces = force_sizes * directions

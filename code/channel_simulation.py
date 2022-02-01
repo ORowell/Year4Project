@@ -130,19 +130,25 @@ class AnalyticChannelSimulation(_AbstractChannelSimulation):
         sim_result = super().run_sim(total_time, dt, cutoff, leave_pbar, quiet)
         return AnalyticalChannelSimResult.from_SimResult(sim_result, self.n_max)
     
-    def _vortices_force(self, vortex_pos, other_pos, cutoff):
-        force = super()._vortices_force(vortex_pos, other_pos, cutoff)
+    @classmethod
+    def _vortices_force(cls, vortex_pos, other_pos, cutoff, extra_args: dict):
+        force = super()._vortices_force(vortex_pos, other_pos, cutoff, **extra_args)
+        channel_force = cls.channel_force(vortex_pos, **extra_args)
         
+        return force + channel_force
+    
+    @staticmethod
+    def channel_force(vortex_pos, y_size, n, q_n, alpha_n, alpha_0, tau_n):
         x, y = vortex_pos
-        exp_y = np.exp(-self.q_n * y)
-        exp_wy = np.exp(self.q_n * (y - self.y_size))
-        f_xn = self.alpha_n*self.n*np.sin(PI2*self.n*x)*(exp_y + self.tau_n*exp_wy)
-        f_yn = self.alpha_n*self.q_n*np.cos(PI2*self.n*x)*(exp_y - self.tau_n*exp_wy)
+        exp_y = np.exp(-q_n * y)
+        exp_wy = np.exp(q_n * (y - y_size))
+        f_xn = alpha_n*n*np.sin(PI2*n*x)*(exp_y + tau_n*exp_wy)
+        f_yn = alpha_n*q_n*np.cos(PI2*n*x)*(exp_y - tau_n*exp_wy)
         
         f_x = PI2**2 * np.sum(f_xn)
-        f_y = -PI2*self.alpha_0*np.exp(-self.y_size/2)*np.sinh(y-self.y_size/2) + PI2 * np.sum(f_yn)
+        f_y = -PI2*alpha_0*np.exp(-y_size/2)*np.sinh(y-y_size/2) + PI2 * np.sum(f_yn)
         
-        return force + np.array([f_x, f_y])
+        return np.array([f_x, f_y])
     
         
 class ChannelSimAnimator(SimAnimator):

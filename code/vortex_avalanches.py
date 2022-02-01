@@ -4,6 +4,7 @@ from simulation import Simulation, PickleClass, SAVE_LOCATION, BAR_FORMAT
 import sys
 from operator import itemgetter
 from warnings import warn
+from multiprocessing import Pool, pool
 import numpy as np
 from dataclasses import dataclass, field
 import matplotlib.pyplot as plt
@@ -69,6 +70,10 @@ class VortexAvalancheBase(Simulation, ABC):
         self.pinning_size = pin_size
         self.pinning_strength = pin_strength
         
+        self.force_extra_args = {'pin_size': self.pinning_size,
+                                 'pin_strength': self.pinning_strength,
+                                 'pinning_sites': self.pinning_sites}
+        
     @classmethod
     def create_system(cls, x_size: int, y_size: int, repeats: int, pinned_density: float,
                       pin_size: float, pin_strength: float, random_seed: Optional[int] = None):
@@ -78,16 +83,19 @@ class VortexAvalancheBase(Simulation, ABC):
         
         return obj
         
-    def _vortices_force(self, vortex_pos, other_pos, cutoff):
+    @classmethod
+    def _vortices_force(cls, vortex_pos, other_pos, cutoff, extra_args: dict):
         # Add an image to stop particles leaving the left side
         other_pos = np.append(other_pos, [[-vortex_pos[0], vortex_pos[1]]], axis=0)
-        repulsive_force = super()._vortices_force(vortex_pos, other_pos, cutoff)
-        attractive_force = self._pinning_force(vortex_pos)
+        repulsive_force = super()._vortices_force(vortex_pos, other_pos, cutoff, extra_args)
+        attractive_force = cls._pinning_force(vortex_pos, **extra_args)
         
         return repulsive_force + attractive_force
        
-    @abstractmethod 
-    def _pinning_force(self, vortex_pos: np.ndarray):
+    @classmethod
+    @abstractmethod
+    def _pinning_force(cls, vortex_pos: np.ndarray, pinning_sites: np.ndarray,
+                       pin_size: float, pin_strength: float):
         """Calculates the force on a vortex due to the attractive pinning sites."""
         raise NotImplementedError
     
@@ -96,7 +104,8 @@ class VortexAvalancheBase(Simulation, ABC):
         np.mod(self.vortices, self.size_ary, out=self.vortices, where=[False, True])
         
     def run_vortex_sim(self, total_added: int, dt: float, force_cutoff: float, movement_cutoff: float,
-                       cutoff_time: int = 1, leave_pbar: bool = True, quiet: bool = False):
+                       cutoff_time: int = 1, leave_pbar: bool = True,
+                       quiet: bool = False, parallel_pool: Optional[pool.Pool] = None):
         # if dt*self.pinning_strength > movement_cutoff:
         #     warn(f'Pinning force is greater than allowed movement for given dt ({dt*self.pinning_strength} > {movement_cutoff}). Pinned vortices may move too much to be deemed stationary.')
         # Record the positions of the vortices at each time step
@@ -118,7 +127,7 @@ class VortexAvalancheBase(Simulation, ABC):
             print()
             while True:
                 count += 1
-                self._step(dt, force_cutoff)
+                self._step(dt, force_cutoff, parallel_pool)
                 new_result_ary = np.append(new_result_ary, self.vortices[np.newaxis, ...], axis=0)
                 
                 # Check for no movement
@@ -148,10 +157,11 @@ class VortexAvalancheBase(Simulation, ABC):
                                self.pinning_size, self.pinning_strength)
             
 class StepAvalancheSim(VortexAvalancheBase):
-    def _pinning_force(self, vortex_pos):
-        displacement = self.pinning_sites - vortex_pos
+    @classmethod
+    def _pinning_force(cls, vortex_pos, pinning_sites, pin_size: float, pin_strength: float):
+        displacement = pinning_sites - vortex_pos
         distances = np.linalg.norm(displacement, axis=1, keepdims=True)
-        force_strength = self.pinning_strength*(distances<self.pinning_size)
+        force_strength = pin_strength*(distances<pin_size)
         
         forces = force_strength*displacement/distances
         
@@ -199,7 +209,18 @@ class AvalancheAnimator:
     
 def test():
     sim = StepAvalancheSim.create_system(10, 4, 2, 4.4, 0.15, 3, 1005)
-    result = sim.run_vortex_sim(50, 1e-3, 9, movement_cutoff=3e-3, cutoff_time=1)
+    
+    processes = None
+    try:
+        if processes is None:
+            p = None
+        else:
+            p = Pool(processes)
+        result = sim.run_vortex_sim(50, 1e-3, 9, movement_cutoff=1e-3, cutoff_time=1, parallel_pool=p)
+    finally:
+        if p:
+            p.terminate()
+            p.join()
     result.save('test_short')
     # result = AvalancheResult.load('test_short')
     print(f'{result.movement_cutoff = }, {result.movement_cutoff_time = }')
