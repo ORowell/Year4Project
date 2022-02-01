@@ -95,8 +95,8 @@ class VortexAvalancheBase(Simulation, ABC):
         # Only wrap in the y-direction
         np.mod(self.vortices, self.size_ary, out=self.vortices, where=[False, True])
         
-    def run_vortex_sim(self, total_added: int, dt: float, force_cutoff: float,
-                       movement_cutoff: float, cutoff_time: int, leave_pbar: bool = True, quiet: bool = False):
+    def run_vortex_sim(self, total_added: int, dt: float, force_cutoff: float, movement_cutoff: float,
+                       cutoff_time: int = 1, leave_pbar: bool = True, quiet: bool = False):
         # if dt*self.pinning_strength > movement_cutoff:
         #     warn(f'Pinning force is greater than allowed movement for given dt ({dt*self.pinning_strength} > {movement_cutoff}). Pinned vortices may move too much to be deemed stationary.')
         # Record the positions of the vortices at each time step
@@ -115,6 +115,7 @@ class VortexAvalancheBase(Simulation, ABC):
             self.add_vortex(self.random_gen.uniform(0, 1), self.random_gen.uniform(0, self.y_size))
             new_result_lst = []
             new_result_ary = self.vortices.copy()[np.newaxis, ...]
+            print()
             while True:
                 count += 1
                 self._step(dt, force_cutoff)
@@ -124,7 +125,7 @@ class VortexAvalancheBase(Simulation, ABC):
                 if new_result_ary.shape[0] > cutoff_time:
                     displacement = new_result_ary[-1] - new_result_ary[-(cutoff_time+1)]
                     distance = np.linalg.norm(displacement, axis=1)
-                    print(f'Vortex {np.argmax(distance):>2}: {str(displacement[np.argmax(distance)]):<35}{movement_cutoff}', end='\r')
+                    print(f'Vortex {np.argmax(distance):>3}: {str(displacement[np.argmax(distance)]):<35}{movement_cutoff}', end='\r')
                     if np.all(distance < movement_cutoff):
                         new_result_lst.append(new_result_ary)
                         sys.stdout.write("\x1b[1A")
@@ -197,15 +198,15 @@ class AvalancheAnimator:
         return self._dots
     
 def test():
-    sim = StepAvalancheSim.create_system(7, 3, 2, 4, 0.15, 0.5, 1005)
-    result = sim.run_vortex_sim(60, 1e-3, 9, movement_cutoff=0.01, cutoff_time=400)
-    result.save('test3_weak')
-    # result = AvalancheResult.load('test3_weak')
+    sim = StepAvalancheSim.create_system(10, 4, 2, 4.4, 0.15, 3, 1005)
+    result = sim.run_vortex_sim(50, 1e-3, 9, movement_cutoff=3e-3, cutoff_time=1)
+    result.save('test_short')
+    # result = AvalancheResult.load('test_short')
     print(f'{result.movement_cutoff = }, {result.movement_cutoff_time = }')
     freq = int(input(f'{result.flattened_num_t} to animate. Enter frequency: '))
     
     animator = AvalancheAnimator()
-    animator.animate(result, 'vortex_test3_weak.gif', freq)
+    animator.animate(result, 'vortex_test_short.gif', freq)
     
 if __name__ == '__main__':
     test()
