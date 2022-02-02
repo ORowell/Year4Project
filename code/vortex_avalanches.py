@@ -1,5 +1,5 @@
 from typing import List, Optional
-from simulation import Simulation, PickleClass, SAVE_LOCATION, BAR_FORMAT
+from simulation import Simulation, PickleClass, BAR_FORMAT
 
 import sys
 from operator import itemgetter
@@ -78,13 +78,15 @@ class VortexAvalancheBase(Simulation, ABC):
         
         return obj
         
-    def _vortices_force(self, vortex_pos, other_pos, cutoff):
+    def _vortices_force(self, vortex_pos, other_pos, vortex_index, cutoff):
         # Add an image to stop particles leaving the left side
-        other_pos = np.append(other_pos, [[-vortex_pos[0], vortex_pos[1]]], axis=0)
-        repulsive_force = super()._vortices_force(vortex_pos, other_pos, cutoff)
+        image_force_size = self._bessel_func(2*vortex_pos[0])
+        image_force = np.array([image_force_size, 0])
+        
+        repulsive_force = super()._vortices_force(vortex_pos, other_pos, vortex_index, cutoff)
         attractive_force = self._pinning_force(vortex_pos)
         
-        return repulsive_force + attractive_force
+        return repulsive_force + attractive_force + image_force
        
     @abstractmethod 
     def _pinning_force(self, vortex_pos: np.ndarray):
@@ -96,7 +98,7 @@ class VortexAvalancheBase(Simulation, ABC):
         np.mod(self.vortices, self.size_ary, out=self.vortices, where=[False, True])
         
     def run_vortex_sim(self, total_added: int, dt: float, force_cutoff: float, movement_cutoff: float,
-                       cutoff_time: int = 1, leave_pbar: bool = True, quiet: bool = False):
+                       cutoff_time: int = 1, include_pbar: bool = True, quiet: bool = False):
         # if dt*self.pinning_strength > movement_cutoff:
         #     warn(f'Pinning force is greater than allowed movement for given dt ({dt*self.pinning_strength} > {movement_cutoff}). Pinned vortices may move too much to be deemed stationary.')
         # Record the positions of the vortices at each time step
@@ -104,18 +106,19 @@ class VortexAvalancheBase(Simulation, ABC):
         if self.random_gen is None:
             self.random_gen: np.random.Generator = np.random.default_rng()
         
-        if quiet:
-            iterator = range(total_added)
-        else:
+        if include_pbar:
             # Loop with progress bar
-            iterator = tqdm.tqdm(range(total_added), desc='Simulating', bar_format=BAR_FORMAT, leave=leave_pbar)
+            iterator = tqdm.tqdm(range(total_added), desc='Simulating', bar_format=BAR_FORMAT)
+        else:
+            iterator = range(total_added)
         count = 0
         for i in iterator:
             # Add a new vortex within the first lattice spacing 
             self.add_vortex(self.random_gen.uniform(0, 1), self.random_gen.uniform(0, self.y_size))
             new_result_lst = []
             new_result_ary = self.vortices.copy()[np.newaxis, ...]
-            print()
+            if include_pbar and not quiet:
+                print()
             while True:
                 count += 1
                 self._step(dt, force_cutoff)
@@ -125,10 +128,12 @@ class VortexAvalancheBase(Simulation, ABC):
                 if new_result_ary.shape[0] > cutoff_time:
                     displacement = new_result_ary[-1] - new_result_ary[-(cutoff_time+1)]
                     distance = np.linalg.norm(displacement, axis=1)
-                    print(f'Vortex {np.argmax(distance):>3}: {str(displacement[np.argmax(distance)]):<35}{movement_cutoff}', end='\r')
+                    if not quiet:
+                        print(f'Vortex {np.argmax(distance):>3}: {str(displacement[np.argmax(distance)]):<35}{movement_cutoff}', end='\r')
                     if np.all(distance < movement_cutoff):
                         new_result_lst.append(new_result_ary)
-                        sys.stdout.write("\x1b[1A")
+                        if include_pbar and not quiet:
+                            sys.stdout.write("\x1b[1A")
                         break
                 
                 # Check for vortices that have gone over the right side
@@ -150,10 +155,14 @@ class VortexAvalancheBase(Simulation, ABC):
 class StepAvalancheSim(VortexAvalancheBase):
     def _pinning_force(self, vortex_pos):
         displacement = self.pinning_sites - vortex_pos
-        distances = np.linalg.norm(displacement, axis=1, keepdims=True)
-        force_strength = self.pinning_strength*(distances<self.pinning_size)
+        # distances = np.linalg.norm(displacement, axis=1, keepdims=True)
+        # force_strength = self.pinning_strength*(distances<self.pinning_size)
         
-        forces = force_strength*displacement/distances
+        # forces = force_strength*displacement/distances
+        distances = np.linalg.norm(displacement, axis=1)
+        directions = displacement/distances[:, np.newaxis]
+        active_pins = directions[distances<self.pinning_size]
+        forces = self.pinning_strength*active_pins
         
         return np.sum(forces, axis=0)
             
@@ -199,7 +208,7 @@ class AvalancheAnimator:
     
 def test():
     sim = StepAvalancheSim.create_system(10, 4, 2, 4.4, 0.15, 3, 1005)
-    result = sim.run_vortex_sim(50, 1e-3, 9, movement_cutoff=3e-3, cutoff_time=1)
+    result = sim.run_vortex_sim(150, 1e-4, 9, movement_cutoff=3e-4, quiet=True)
     result.save('test_short')
     # result = AvalancheResult.load('test_short')
     print(f'{result.movement_cutoff = }, {result.movement_cutoff_time = }')

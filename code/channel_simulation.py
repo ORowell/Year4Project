@@ -130,8 +130,8 @@ class AnalyticChannelSimulation(_AbstractChannelSimulation):
         sim_result = super().run_sim(total_time, dt, cutoff, leave_pbar, quiet)
         return AnalyticalChannelSimResult.from_SimResult(sim_result, self.n_max)
     
-    def _vortices_force(self, vortex_pos, other_pos, cutoff):
-        force = super()._vortices_force(vortex_pos, other_pos, cutoff)
+    def _vortices_force(self, vortex_pos, other_pos, vortex_index, cutoff):
+        force = super()._vortices_force(vortex_pos, other_pos, vortex_index, cutoff)
         
         x, y = vortex_pos
         exp_y = np.exp(-self.q_n * y)

@@ -145,9 +145,9 @@ class Simulation:
         new_vortices = self.vortices.copy()
         # Could be done by numpy without a loop or in parallel?
         for i, vortex in enumerate(self.vortices):
-            # Don't allow a vortex to act on itself
-            acting_vortices = np.delete(all_vortices, i, axis=0)
-            force = self._vortices_force(vortex, acting_vortices, cutoff)
+            # # Don't allow a vortex to act on itself
+            # acting_vortices = np.delete(all_vortices, i, axis=0)
+            force = self._vortices_force(vortex, all_vortices, i, cutoff)
             
             new_vortices[i] += dt*force
         
@@ -178,9 +178,11 @@ class Simulation:
               
         return np.stack((x_images, y_images), axis=1)
     
-    def _vortices_force(self, vortex_pos, other_pos, cutoff):
+    def _vortices_force(self, vortex_pos, other_pos, vortex_index, cutoff):
         rel_pos = vortex_pos - other_pos
         distances = np.linalg.norm(rel_pos, axis=1, keepdims=True)
+        # Don't include interaction with itself
+        distances[vortex_index] = np.inf
         directions = rel_pos/distances
         
         # Don't calculate for long distances
