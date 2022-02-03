@@ -1,5 +1,5 @@
 from typing import Optional, Type, TypeVar
-import os.path
+import os
 import numpy as np
 import scipy.special as scipy_s
 import tqdm
@@ -14,14 +14,16 @@ SAVE_LOCATION = 'results\\Simulation_results\\{cls.__name__}'
 FILE_LOCATION = SAVE_LOCATION + '\\{filename}'
 
 
-T = TypeVar('T', bound='PickleClass')
+_T = TypeVar('_T', bound='PickleClass')
 class PickleClass:
     def save(self, filename: str):
+        if not os.path.exists(SAVE_LOCATION):
+            os.makedirs(SAVE_LOCATION)
         with open(FILE_LOCATION.format(cls=self.__class__, filename=filename), 'wb') as f:
             pickle.dump(self, f)
             
     @classmethod
-    def load(cls: Type[T], filename: str, quiet=False) -> Optional[T]:
+    def load(cls: Type[_T], filename: str, quiet=False) -> Optional[_T]:
         path = FILE_LOCATION.format(cls=cls, filename=filename)
         if not os.path.exists(path):
             if not quiet:
@@ -87,9 +89,11 @@ class Simulation:
     def _generate_random_pos(self, num_pos: int, seed: Optional[int] = None,
                              min_x: float = 0, min_y: float = 0):
         """Create a given number of random positions"""
-        if self.random_gen is None or seed is not None:
+        if seed is not None:
             # Allow usage of a seed for consistent results, eg. benchmarking
             self.random_gen = np.random.default_rng(seed)
+        elif self.random_gen is None:
+            self.random_gen = np.random.default_rng()
         
         x_vals = self.random_gen.uniform(min_x, self.x_size, (num_pos, 1))
         y_vals = self.random_gen.uniform(min_y, self.y_size, (num_pos, 1))
