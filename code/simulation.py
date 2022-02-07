@@ -10,27 +10,37 @@ from dataclasses import dataclass, field
 
 BAR_FORMAT = '{desc}: {percentage:5.1f}%|{bar}{r_bar}'
 HALF_ROOT_3 = np.sqrt(3)/2
-SAVE_LOCATION = 'results\\Simulation_results\\{cls.__name__}'
-FILE_LOCATION = SAVE_LOCATION + '\\{filename}'
+SAVE_LOCATION = os.path.join('results', 'Simulation_results', '{cls.__name__}')
 
 
 _T = TypeVar('_T', bound='PickleClass')
 class PickleClass:
-    def save(self, filename: str):
-        if not os.path.exists(SAVE_LOCATION):
-            os.makedirs(SAVE_LOCATION)
-        with open(FILE_LOCATION.format(cls=self.__class__, filename=filename), 'wb') as f:
+    def save(self, filename, directory: Optional[str] = None):
+        if directory is None:
+            directory = SAVE_LOCATION.format(cls=self.__class__)
+        if not os.path.exists(directory):
+            print('Making dirs at', directory)
+            os.makedirs(directory)
+        file_location = os.path.join(directory, filename)
+        with open(file_location, 'wb') as f:
+            print('Saving file to', file_location)
             pickle.dump(self, f)
             
     @classmethod
-    def load(cls: Type[_T], filename: str, quiet=False) -> Optional[_T]:
-        path = FILE_LOCATION.format(cls=cls, filename=filename)
-        if not os.path.exists(path):
+    def load(cls: Type[_T], filename: str, directory: Optional[str] = None,
+             quiet=False) -> Optional[_T]:
+        if directory is None:
+            directory = SAVE_LOCATION.format(cls=cls)
+        if not os.path.exists(directory):
             if not quiet:
-                print(f'{path} not found')
+                print(f'{directory} not found')
             return None
-        with open(FILE_LOCATION.format(cls=cls, filename=filename), 'rb') as f:
-            return pickle.load(f)
+        with open(os.path.join(directory, filename), 'rb') as f:
+            result = pickle.load(f)
+            if isinstance(result, cls):
+                return result
+            else:
+                return None
 
 @dataclass
 class SimResult(PickleClass):

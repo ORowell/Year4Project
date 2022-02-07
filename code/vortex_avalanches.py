@@ -16,7 +16,7 @@ from abc import ABC, abstractmethod
 PROFILING       = False         # -p, --profile
 LENGTH          = 10            # -l, --length
 WIDTH           = 4             # -w, --width
-REPEATS         = 2             #     --repeats
+REPEATS         = 1             #     --repeats
 PIN_DENSITY     = 4.4           # -d, --density
 PIN_SIZE        = 0.15          # -r, --pin_radius
 PIN_STRENGTH    = 3.            # -f, --pin_force
@@ -24,7 +24,7 @@ SEED            = 1001          # -s, --seed
 DT              = 1e-4          # -t, --dt
 REL_STOP_SPEED  = 1.            #     --rel_stop_speed
 ADDED_VORTICES  = 250           # -v, --vortices
-NAME            = f'test{SEED}' # -n, --name
+NAME            = ''            # -n, --name
 ANIMATE         = False         # -a, --animate
 LOAD_FILE       = False         #     --load
 
@@ -38,37 +38,54 @@ opts, args = getopt.getopt(argv, 'pl:w:d:r:f:s:t:v:n:a',
 for opt, arg in opts:
     if opt in ('-p', '--profile'):
         PROFILING = True
+        print(f'Setting {PROFILING = }')
     elif opt in ('-l', '--length'):
-       LENGTH = int(arg)
+        LENGTH = int(arg)
+        print(f'Setting {LENGTH = }')
     elif opt in ('-w', '--width'):
-       WIDTH = int(arg)
+        WIDTH = int(arg)
+        print(f'Setting {WIDTH = }')
     elif opt == '--repeats':
-       REPEATS = int(arg)
+        REPEATS = int(arg)
+        print(f'Setting {REPEATS = }')
     elif opt in ('-d', '--density'):
-       PIN_DENSITY = float(arg)
+        PIN_DENSITY = float(arg)
+        print(f'Setting {PIN_DENSITY = }')
     elif opt in ('-r', '--pin_radius'):
-       PIN_SIZE = float(arg)
+        PIN_SIZE = float(arg)
+        print(f'Setting {PIN_SIZE = }')
     elif opt in ('-f', '--pin_force'):
-       PIN_STRENGTH = float(arg)
+        PIN_STRENGTH = float(arg)
+        print(f'Setting {PIN_STRENGTH = }')
     elif opt in ('-s', '--seed'):
-       SEED = int(arg)
+        SEED = int(arg)
+        print(f'Setting {SEED = }')
     elif opt in ('-t', '--dt'):
-       DT = float(arg)
+        DT = float(arg)
+        print(f'Setting {DT = }')
     elif opt == '--rel_stop_speed':
-       REL_STOP_SPEED = float(arg)
+        REL_STOP_SPEED = float(arg)
+        print(f'Setting {REL_STOP_SPEED = }')
     elif opt in ('-v', '--vortices'):
-       ADDED_VORTICES = int(arg)
+        ADDED_VORTICES = int(arg)
+        print(f'Setting {ADDED_VORTICES = }')
     elif opt in ('-n', '--name'):
-       NAME = arg
+        NAME = arg
+        print(f'Setting {NAME = }')
     elif opt in ('-a', '--animate'):
         ANIMATE = True
+        print(f'Setting {ANIMATE = }')
     elif opt == '--load':
         LOAD_FILE = True
+        print(f'Setting {LOAD_FILE = }')
 
 MOVEMENT_CUTOFF = REL_STOP_SPEED * PIN_STRENGTH * DT
 if PROFILING:
     ANIMATE = False
     LOAD_FILE = False
+if NAME == '':
+    NAME = f'test{SEED}_short'
+    print(f'Setting {NAME = }')
 
 @dataclass
 class AvalancheResult(PickleClass):
@@ -141,6 +158,8 @@ class AvalancheResult(PickleClass):
                                self.movement_cutoff_time, self.pinning_size, self.pinning_strength)
 
 class VortexAvalancheBase(Simulation, ABC):
+    X_NEG_ARY = np.array([-1,1])
+    
     def __init__(self, x_num: int, y_num: int, x_repeats: int, y_repeats: int,
                  pin_size: float, pin_strength: float):
         super().__init__(x_num, y_num, x_repeats, y_repeats)
@@ -159,14 +178,14 @@ class VortexAvalancheBase(Simulation, ABC):
         return obj
         
     def _vortices_force(self, vortex_pos, other_pos, vortex_index, cutoff):
-        # Add an image to stop particles leaving the left side
-        image_force_size = self._bessel_func(2*vortex_pos[0])
-        image_force = np.array([image_force_size, 0])
-        
+        # Add mirror images to stop particles leaving the left side#
+        mirror_images = self.vortices * self.X_NEG_ARY
+        other_pos = np.append(other_pos, mirror_images, axis=0)
+                
         repulsive_force = super()._vortices_force(vortex_pos, other_pos, vortex_index, cutoff)
         attractive_force = self._pinning_force(vortex_pos)
         
-        return repulsive_force + attractive_force + image_force
+        return repulsive_force + attractive_force
        
     @abstractmethod 
     def _pinning_force(self, vortex_pos: np.ndarray):

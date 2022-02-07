@@ -200,7 +200,7 @@ def get_channel_result(width: int, force: float, channel_cls: Type[_AbstractChan
     
     filename = get_filename(width, force)
     if not force_sim:
-        result = channel_cls.result_type.load(filename, True)
+        result = channel_cls.result_type.load(filename, quiet=True)
         if result is not None:
             if (result.dt == dt and result.num_t-1 == int(num_steps)
                 and np.all(result.size_ary == sim.size_ary)
