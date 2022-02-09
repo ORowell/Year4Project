@@ -13,7 +13,9 @@ import matplotlib.animation as anim
 import tqdm
 from abc import ABC, abstractmethod
 
-PROFILING       = False         # -p, --profile
+NP_FORMATTER = {'float': '{: .5e}'.format}
+
+PROFILING       = False         #     --profile
 LENGTH          = 10            # -l, --length
 WIDTH           = 4             # -w, --width
 REPEATS         = 1             #     --repeats
@@ -23,61 +25,69 @@ PIN_STRENGTH    = 3.            # -f, --pin_force
 SEED            = 1001          # -s, --seed
 DT              = 1e-4          # -t, --dt
 REL_STOP_SPEED  = 1.            #     --rel_stop_speed
-ADDED_VORTICES  = 250           # -v, --vortices
+NUM_VORTICES    = 250           # -v, --vortices
 NAME            = ''            # -n, --name
+COMPRESS        = 1             # -c, --compress
 ANIMATE         = False         # -a, --animate
 LOAD_FILE       = False         #     --load
+PRINT_AFTER     = None          #     --verbose
 
-argv = sys.argv[1:]
-opts, args = getopt.getopt(argv, 'pl:w:d:r:f:s:t:v:n:a',
-                           ['profile', 'length=', 'width=', 'repeats=',
-                            'density=', 'pin_radius=', 'pin_force=',
-                            'seed=', 'dt=', 'rel_stop_speed=', 'vortices=',
-                            'name=', 'animate', 'load'])
-
-for opt, arg in opts:
-    if opt in ('-p', '--profile'):
-        PROFILING = True
-        print(f'Setting {PROFILING = }')
-    elif opt in ('-l', '--length'):
-        LENGTH = int(arg)
-        print(f'Setting {LENGTH = }')
-    elif opt in ('-w', '--width'):
-        WIDTH = int(arg)
-        print(f'Setting {WIDTH = }')
-    elif opt == '--repeats':
-        REPEATS = int(arg)
-        print(f'Setting {REPEATS = }')
-    elif opt in ('-d', '--density'):
-        PIN_DENSITY = float(arg)
-        print(f'Setting {PIN_DENSITY = }')
-    elif opt in ('-r', '--pin_radius'):
-        PIN_SIZE = float(arg)
-        print(f'Setting {PIN_SIZE = }')
-    elif opt in ('-f', '--pin_force'):
-        PIN_STRENGTH = float(arg)
-        print(f'Setting {PIN_STRENGTH = }')
-    elif opt in ('-s', '--seed'):
-        SEED = int(arg)
-        print(f'Setting {SEED = }')
-    elif opt in ('-t', '--dt'):
-        DT = float(arg)
-        print(f'Setting {DT = }')
-    elif opt == '--rel_stop_speed':
-        REL_STOP_SPEED = float(arg)
-        print(f'Setting {REL_STOP_SPEED = }')
-    elif opt in ('-v', '--vortices'):
-        ADDED_VORTICES = int(arg)
-        print(f'Setting {ADDED_VORTICES = }')
-    elif opt in ('-n', '--name'):
-        NAME = arg
-        print(f'Setting {NAME = }')
-    elif opt in ('-a', '--animate'):
-        ANIMATE = True
-        print(f'Setting {ANIMATE = }')
-    elif opt == '--load':
-        LOAD_FILE = True
-        print(f'Setting {LOAD_FILE = }')
+if __name__ == '__main__':
+    argv = sys.argv[1:]
+    opts, args = getopt.getopt(argv, 'l:w:d:r:f:s:t:v:n:c:ap:',
+                            ['profile', 'length=', 'width=', 'repeats=',
+                             'density=', 'pin_radius=', 'pin_force=',
+                             'seed=', 'dt=', 'rel_stop_speed=', 'vortices=',
+                             'name=', 'compress=', 'animate', 'load', 'print_after='])
+    for opt, arg in opts:
+        if opt == '--profile':
+            PROFILING = True
+            print(f'Setting {PROFILING = }')
+        elif opt in ('-l', '--length'):
+            LENGTH = int(arg)
+            print(f'Setting {LENGTH = }')
+        elif opt in ('-w', '--width'):
+            WIDTH = int(arg)
+            print(f'Setting {WIDTH = }')
+        elif opt == '--repeats':
+            REPEATS = int(arg)
+            print(f'Setting {REPEATS = }')
+        elif opt in ('-d', '--density'):
+            PIN_DENSITY = float(arg)
+            print(f'Setting {PIN_DENSITY = }')
+        elif opt in ('-r', '--pin_radius'):
+            PIN_SIZE = float(arg)
+            print(f'Setting {PIN_SIZE = }')
+        elif opt in ('-f', '--pin_force'):
+            PIN_STRENGTH = float(arg)
+            print(f'Setting {PIN_STRENGTH = }')
+        elif opt in ('-s', '--seed'):
+            SEED = int(arg)
+            print(f'Setting {SEED = }')
+        elif opt in ('-t', '--dt'):
+            DT = float(arg)
+            print(f'Setting {DT = }')
+        elif opt == '--rel_stop_speed':
+            REL_STOP_SPEED = float(arg)
+            print(f'Setting {REL_STOP_SPEED = }')
+        elif opt in ('-v', '--vortices'):
+            NUM_VORTICES = int(arg)
+            print(f'Setting {NUM_VORTICES = }')
+        elif opt in ('-n', '--name'):
+            NAME = arg
+            print(f'Setting {NAME = }')
+        elif opt in ('-c', '--compress'):
+            COMPRESS = int(arg)
+            print(f'Setting {COMPRESS = }')
+        elif opt in ('-a', '--animate'):
+            ANIMATE = True
+            print(f'Setting {ANIMATE = }')
+        elif opt == '--load':
+            LOAD_FILE = True
+            print(f'Setting {LOAD_FILE = }')
+        elif opt in ('-p', '--print_after'):
+            PRINT_AFTER = int(arg)
+            print(f'Setting {PRINT_AFTER = }')
 
 MOVEMENT_CUTOFF = REL_STOP_SPEED * PIN_STRENGTH * DT
 if PROFILING:
@@ -85,7 +95,6 @@ if PROFILING:
     LOAD_FILE = False
 if NAME == '':
     NAME = f'test{SEED}_short'
-    print(f'Setting {NAME = }')
 
 @dataclass
 class AvalancheResult(PickleClass):
@@ -116,7 +125,8 @@ class AvalancheResult(PickleClass):
     @property
     def flatten(self):
         """Return the result as just a list of varying array shape.
-        
+        """
+        """
         This will remove the result data for just before a vortex is removed
         after going off the end so should not be used for analysis of vortex
         movement.
@@ -124,8 +134,8 @@ class AvalancheResult(PickleClass):
         output: List[np.ndarray] = []
         for vortex_add_lst in self.values:
             for ary in vortex_add_lst:
-                # Don't include the in between data (just before a vortex is deleted)
-                ary = ary[:-1]
+                # # Don't include the in between data (just before a vortex is deleted)
+                # ary = ary[:-1]
                 for data in ary:
                     output.append(data)
             # But do include the final one after movement has ended
@@ -197,9 +207,10 @@ class VortexAvalancheBase(Simulation, ABC):
         np.mod(self.vortices, self.size_ary, out=self.vortices, where=[False, True])
         
     def run_vortex_sim(self, total_added: int, dt: float, force_cutoff: float, movement_cutoff: float,
-                       cutoff_time: int = 1, include_pbar: bool = True, quiet: bool = False):
+                       cutoff_time: int = 1, include_pbar: bool = True, print_after: Optional[int] = None):
         # if dt*self.pinning_strength > movement_cutoff:
-        #     warn(f'Pinning force is greater than allowed movement for given dt ({dt*self.pinning_strength} > {movement_cutoff}). Pinned vortices may move too much to be deemed stationary.')
+        #     warn(f'Pinning force is greater than allowed movement for given dt ({dt*self.pinning_strength} > {movement_cutoff}). \
+        #         Pinned vortices may move too much to be deemed stationary.')
         # Record the positions of the vortices at each time step
         result_vals = []
         removed_vortices: List[List[int]] = []
@@ -211,15 +222,13 @@ class VortexAvalancheBase(Simulation, ABC):
             iterator = tqdm.tqdm(range(total_added), desc='Simulating', bar_format=BAR_FORMAT)
         else:
             iterator = range(total_added)
-        count = 0
         for i in iterator:
             new_removed_vortex_lst: List[int] = []
             # Add a new vortex within the first lattice spacing
             self.add_vortex(self.random_gen.uniform(0, 1), self.random_gen.uniform(0, self.y_size))
             new_result_lst = []
             new_result_ary = self.vortices.copy()[np.newaxis, ...]
-            if include_pbar and not quiet:
-                print()
+            count = 0
             while True:
                 count += 1
                 self._step(dt, force_cutoff)
@@ -228,12 +237,19 @@ class VortexAvalancheBase(Simulation, ABC):
                 # Check for no movement
                 if new_result_ary.shape[0] > cutoff_time:
                     displacement = new_result_ary[-1] - new_result_ary[-(cutoff_time+1)]
+                    displacement = np.mod(displacement + self.size_ary/2, self.size_ary) - self.size_ary/2
                     distance = np.linalg.norm(displacement, axis=1)
-                    if not quiet:
-                        print(f'Vortex {np.argmax(distance):>3}: {str(displacement[np.argmax(distance)]):<35}{movement_cutoff}', end='\r')
-                    if np.all(distance < movement_cutoff):
+                    
+                    # If this event is taking a long time print out updates
+                    if count == print_after:
+                        print()
+                    if print_after is not None and count >= print_after:
+                        np_out = np.array2string(displacement[np.argmax(distance)], formatter=NP_FORMATTER)
+                        print(f'Vortex {np.argmax(distance):>3}: {np_out:<35}{movement_cutoff:.2e}', end='\r')
+                    
+                    if np.all(distance < movement_cutoff*cutoff_time):
                         new_result_lst.append(new_result_ary)
-                        if include_pbar and not quiet:
+                        if include_pbar and print_after is not None and count >= print_after:
                             sys.stdout.write("\x1b[1A")
                         break
                 
@@ -272,20 +288,20 @@ class StepAvalancheSim(VortexAvalancheBase):
         return np.sum(forces, axis=0)
             
 class AvalancheAnimator:    
-    def animate(self, result: AvalancheResult, filename, anim_freq=1):
+    def animate(self, result: AvalancheResult, filename, anim_freq: int = 1):
         self._result = result
         
         n_steps = self._result.flattened_num_t//anim_freq
         self._anim_freq = anim_freq
+        self._p_bar = tqdm.tqdm(total=n_steps+1, desc='Animating ', unit='fr', bar_format=BAR_FORMAT)
         
         fig, _ = self._anim_init(self._result.max_vortices)
-        
         animator = anim.FuncAnimation(fig, self._anim_update, n_steps, blit=True)
         
-        self._p_bar = tqdm.tqdm(total=n_steps+1, desc='Animating ', unit='fr', bar_format=BAR_FORMAT)
-        if not os.path.exists('results\\gifs'):
-            os.makedirs('results\\gifs')
-        animator.save(f'results\\gifs\\{filename}', fps=30)
+        directory = os.path.join('results', 'gifs')
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+        animator.save(os.path.join(directory, filename), fps=30)
         self._p_bar.close()
         
     def _anim_init(self, max_vortices):
@@ -301,13 +317,25 @@ class AvalancheAnimator:
         
         return fig, ax
         
-    def _anim_update(self, frame_num):
+    def _anim_update(self, frame_num: int):
         self._p_bar.update(1)
         values = self._result.flatten[frame_num*self._anim_freq]
         num_vortices = values.shape[0]
+        
+        compare_frame = frame_num*self._anim_freq - self._result.movement_cutoff_time
+        stationary = np.full(num_vortices, True)
+        if compare_frame >= 0:
+            last_values = self._result.flatten[compare_frame]
+            # Only change colours if a vortex wasn't just added/deleted
+            if len(last_values) == num_vortices:
+                diff = values - last_values
+                diff = np.mod(diff + self._result.size_ary/2, self._result.size_ary) - self._result.size_ary/2
+                distance = np.linalg.norm(diff, axis=1)
+                stationary = distance < self._result.movement_cutoff*self._result.movement_cutoff_time
         for i, dot in enumerate(self._dots):
             if i < num_vortices:
                 dot.set_data(values[i])
+                dot.set_color('r' if stationary[i] else 'b')
             else:
                 dot.set_data([], [])
             
@@ -315,11 +343,13 @@ class AvalancheAnimator:
     
 def main(length: int = LENGTH, width: int = WIDTH, repeats: int = REPEATS, density: float = PIN_DENSITY,
          pin_size: float = PIN_SIZE, pin_strength: float = PIN_STRENGTH, seed: int = SEED, dt: float = DT,
-         movement_cutoff: float = MOVEMENT_CUTOFF, n_vortices: int = ADDED_VORTICES, name: str = NAME,
-         animate: bool = ANIMATE, load_file: bool = LOAD_FILE):
+         movement_cutoff: float = MOVEMENT_CUTOFF, num_vortices: int = NUM_VORTICES, name: str = NAME,
+         compress: int = 1, animate: bool = ANIMATE, load_file: bool = LOAD_FILE, print_after: Optional[int] = PRINT_AFTER):
     if not load_file:
         sim = StepAvalancheSim.create_system(length, width, repeats, density, pin_size, pin_strength, seed)
-        result = sim.run_vortex_sim(n_vortices, dt, 9, movement_cutoff=movement_cutoff, quiet=True)
+        result = sim.run_vortex_sim(num_vortices, dt, 9, movement_cutoff=movement_cutoff, print_after=print_after, cutoff_time=100)
+        if compress != 1:
+            result = result.compress(compress)
         result.save(name)
     else:
         result = AvalancheResult.load(name)
