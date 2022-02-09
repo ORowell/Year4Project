@@ -1,5 +1,5 @@
 from typing import List, Optional
-from simulation import Simulation, PickleClass, BAR_FORMAT
+from simulation import Simulation, PickleClass, BAR_FORMAT, HALF_ROOT_3
 
 import sys
 import os
@@ -105,6 +105,8 @@ class AvalancheResult(PickleClass):
     dt: float
     x_size: float
     y_size: float
+    repeats: int
+    random_gen: np.random.Generator
     force_cutoff: float
     movement_cutoff: float
     movement_cutoff_time: int
@@ -164,8 +166,9 @@ class AvalancheResult(PickleClass):
             new_vals.append(new_lst)
         
         return AvalancheResult(new_vals, self.removed_vortices,self.pinning_sites, self.dt*freq,
-                               self.x_size, self.y_size, self.force_cutoff, self.movement_cutoff,
-                               self.movement_cutoff_time, self.pinning_size, self.pinning_strength)
+                               self.x_size, self.y_size, self.repeats, self.random_gen,
+                               self.force_cutoff, self.movement_cutoff, self.movement_cutoff_time,
+                               self.pinning_size, self.pinning_strength)
 
 class VortexAvalancheBase(Simulation, ABC):
     X_NEG_ARY = np.array([-1,1])
@@ -187,6 +190,14 @@ class VortexAvalancheBase(Simulation, ABC):
         
         return obj
         
+    @classmethod
+    def continue_from(cls, past_result: AvalancheResult):
+        obj = cls(int(past_result.x_size), int(past_result.y_size/HALF_ROOT_3), 0,
+                  past_result.repeats, past_result.pinning_size, past_result.pinning_strength)
+        obj.pinning_sites = past_result.pinning_sites
+        obj.vortices = past_result.values[-1][-1]
+        obj.random_gen = past_result.random_gen
+        
     def _vortices_force(self, vortex_pos, other_pos, vortex_index, cutoff):
         # Add mirror images to stop particles leaving the left side#
         mirror_images = self.vortices * self.X_NEG_ARY
@@ -196,7 +207,7 @@ class VortexAvalancheBase(Simulation, ABC):
         attractive_force = self._pinning_force(vortex_pos)
         
         return repulsive_force + attractive_force
-       
+
     @abstractmethod 
     def _pinning_force(self, vortex_pos: np.ndarray):
         """Calculates the force on a vortex due to the attractive pinning sites."""
@@ -270,8 +281,9 @@ class VortexAvalancheBase(Simulation, ABC):
             removed_vortices.append(new_removed_vortex_lst)
             
         return AvalancheResult(result_vals, removed_vortices,self.pinning_sites, dt,
-                               self.x_size, self.y_size, force_cutoff, movement_cutoff,
-                               cutoff_time, self.pinning_size, self.pinning_strength)
+                               self.x_size, self.y_size, self.y_images, self.random_gen,
+                               force_cutoff, movement_cutoff, cutoff_time,
+                               self.pinning_size, self.pinning_strength)
             
 class StepAvalancheSim(VortexAvalancheBase):
     def _pinning_force(self, vortex_pos):
