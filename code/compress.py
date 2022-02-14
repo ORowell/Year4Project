@@ -1,4 +1,4 @@
-from vortex_avalanches import AvalancheResult
+from avalanche_analysis_classes import AvalancheResult
 
 import sys
 import getopt
@@ -32,8 +32,13 @@ if NAME is None:
 result = AvalancheResult.load(NAME, DIRECTORY)
 if not isinstance(result, AvalancheResult):
     raise FileNotFoundError(f'Could not find file: {NAME}')
+print('Loaded result')
 comp_result = result.compress(FREQ)
+print('Compressed result')
+# Remove result from memory
+result = None
+print('Saving compressed result')
 if REPLACE_OLD:
     comp_result.save(NAME, DIRECTORY)
 else:
-    comp_result.save(f'comp_{NAME}', DIRECTORY)
+    comp_result.save(f'{NAME}_comp', DIRECTORY)

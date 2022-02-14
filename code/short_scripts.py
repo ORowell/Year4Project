@@ -1,8 +1,8 @@
-from vortex_avalanches import AvalancheAnimator, AvalancheResult
+from avalanche_analysis_classes import AvalancheAnimator, AvalancheResult
 
 import os
 
-def animate_file(filename: str, directory: str):
+def animate_file(filename: str, directory: str, output_ext: str = ''):
     result = AvalancheResult.load(filename, directory)
     if result is None:
         print(f'Failed to load {filename}')
@@ -12,7 +12,7 @@ def animate_file(filename: str, directory: str):
     freq = int(input(f'{result.flattened_num_t} to animate. Enter frequency: '))
     
     animator = AvalancheAnimator()
-    animator.animate(result, f'{filename}.gif', freq)
+    animator.animate(result, f'{filename}{output_ext}.gif', freq)
 
 def animate_folder(directory: str):
     for filename in os.listdir(directory):
@@ -20,4 +20,4 @@ def animate_folder(directory: str):
         
 if __name__ == '__main__':
     # animate_folder('results\\Simulation_results\\AvalancheResult\\Density_sweep')
-    animate_file('density_sweep_6.0', 'results\\Simulation_results\\AvalancheResult\\Density_sweep')
+    animate_file('density_sweep_3.0', 'results\\Simulation_results\\AvalancheResult\\Density_sweep')
