@@ -124,11 +124,14 @@ class VortexAvalancheBase(Simulation, ABC):
         obj.vortices = past_result.values[-1][-1]
         obj.random_gen = past_result.random_gen
         
-    def _vortices_force(self, vortex_pos, other_pos, vortex_index, cutoff):
+    def _get_all_vortices(self):
         # Add mirror images to stop particles leaving the left side
         mirror_images = self.vortices * self.X_NEG_ARY
-        other_pos = np.append(other_pos, mirror_images, axis=0)
-                
+        all_vortices = np.append(self.vortices, mirror_images, axis=0)
+        images = self._get_images(all_vortices)
+        return np.concatenate((all_vortices, images))
+        
+    def _vortices_force(self, vortex_pos, other_pos, vortex_index, cutoff):
         repulsive_force = super()._vortices_force(vortex_pos, other_pos, vortex_index, cutoff)
         attractive_force = self._pinning_force(vortex_pos)
         
