@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Tuple
 from simulation import PickleClass, BAR_FORMAT
 
 import os
@@ -85,10 +85,19 @@ class AvalancheResult(PickleClass):
     
     def get_event_sizes(self, rel_cutoff: float = 2, time_start: int = 0, x_min: float = 0):
         events: List[int] = []
-        # Iterate through each added vortex
-        for data, del_vortices in zip(self.values[time_start:], self.removed_vortices[time_start:]):
+        is_events = self.get_events(rel_cutoff, time_start, x_min)
+        for del_vortices, is_event in is_events:
             # Count all vortices that left the system as being part of the event
             num_event = len(del_vortices)
+            num_event += np.count_nonzero(is_event)
+            
+            events.append(num_event)
+        return events
+    
+    def get_events(self, rel_cutoff: float = 2, time_start: int = 0, x_min: float = 0):
+        is_events: List[Tuple[List[int], np.ndarray]] = []
+        # Iterate through each added vortex
+        for data, del_vortices in zip(self.values[time_start:], self.removed_vortices[time_start:]):
             start_pos = data[0][0, ...]
             end_pos = data[-1][-1, ...]
             
@@ -100,10 +109,33 @@ class AvalancheResult(PickleClass):
             displacement = np.mod(displacement + self.size_ary/2, self.size_ary) - self.size_ary/2
             distance_moved = np.linalg.norm(displacement, axis=1)
             is_event = np.logical_and(distance_moved > rel_cutoff*self.pinning_size, end_pos[:, 0] >= x_min)
-            num_event += np.count_nonzero(is_event)
             
-            events.append(num_event)
-        return events
+            is_events.append((del_vortices, is_event))
+        return is_events
+    
+    def get_event_paths(self, rel_cutoff: float = 2, time_start: int = 0, x_min: float = 0):
+        events_paths: List[List[np.ndarray]] = []
+        is_events = self.get_events(rel_cutoff, time_start, x_min)
+        for (del_vortices, is_event), data in zip(is_events, self.values[time_start:]):
+            event_paths: List[np.ndarray] = []
+            data = data.copy()
+            for removed_vortex in del_vortices:
+                path = np.empty(shape=(0, 2))
+                for j, data_ary in enumerate(data[:-1]):
+                    path = np.append(path, data_ary[:, removed_vortex, :], axis=0)
+                    # Remove vortex from the array
+                    data[j] = np.delete(data_ary, removed_vortex, axis=1)
+                    # Check if this is when vortex was removed
+                    if data[j].shape[1] == data[j+1].shape[1]:
+                        break
+                event_paths.append(path)
+            event_data = np.empty(shape=(0, np.count_nonzero(is_event), 2))
+            for data_ary in data:
+                event_data = np.append(event_data, data_ary[:, is_event, :], axis=0)
+            event_paths.extend(np.swapaxes(event_data, 0, 1))
+            events_paths.append(event_paths)
+            
+        return events_paths
             
 class AvalancheAnimator:    
     def animate(self, result: AvalancheResult, filename, anim_freq: int = 1):

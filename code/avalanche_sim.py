@@ -20,10 +20,11 @@ PIN_SIZE        = 0.15          # -r, --pin_radius
 PIN_STRENGTH    = 3.            # -f, --pin_force
 SEED            = 1001          # -s, --seed
 DT              = 1e-4          # -t, --dt
-REL_STOP_SPEED  = 1.            #     --rel_stop_speed
+REL_STOP_SPEED  = 0.1           #     --rel_stop_speed
 NUM_VORTICES    = 250           # -v, --vortices
 NAME            = ''            # -n, --name
 COMPRESS        = 1             # -c, --compress
+START_FROM      = None          #     --start_from
 ANIMATE         = False         # -a, --animate
 LOAD_FILE       = False         #     --load
 PRINT_AFTER     = None          #     --verbose
@@ -78,6 +79,9 @@ if __name__ == '__main__':
         elif opt in ('-a', '--animate'):
             ANIMATE = True
             print(f'Setting {ANIMATE = }')
+        elif opt == '--start_from':
+            START_FROM = arg
+            print(f'Setting {START_FROM = }')
         elif opt == '--load':
             LOAD_FILE = True
             print(f'Setting {LOAD_FILE = }')
@@ -121,7 +125,7 @@ class VortexAvalancheBase(Simulation, ABC):
         obj.random_gen = past_result.random_gen
         
     def _vortices_force(self, vortex_pos, other_pos, vortex_index, cutoff):
-        # Add mirror images to stop particles leaving the left side#
+        # Add mirror images to stop particles leaving the left side
         mirror_images = self.vortices * self.X_NEG_ARY
         other_pos = np.append(other_pos, mirror_images, axis=0)
                 
@@ -224,11 +228,18 @@ class StepAvalancheSim(VortexAvalancheBase):
 def main(length: int = LENGTH, width: int = WIDTH, repeats: int = REPEATS, density: float = PIN_DENSITY,
          pin_size: float = PIN_SIZE, pin_strength: float = PIN_STRENGTH, seed: int = SEED, dt: float = DT,
          movement_cutoff: float = MOVEMENT_CUTOFF, num_vortices: int = NUM_VORTICES, name: str = NAME,
-         compress: int = COMPRESS, animate: bool = ANIMATE, load_file: bool = LOAD_FILE,
-         print_after: Optional[int] = PRINT_AFTER):
+         compress: int = COMPRESS, animate: bool = ANIMATE, start_from: Optional[str] = None,
+         load_file: bool = LOAD_FILE, print_after: Optional[int] = PRINT_AFTER):
     if not load_file:
-        sim = StepAvalancheSim.create_system(length, width, repeats, density, pin_size, pin_strength, seed)
+        if start_from is None:
+            sim = StepAvalancheSim.create_system(length, width, repeats, density, pin_size, pin_strength, seed)
+        else:
+            # Continue from a past state
+            past_result = AvalancheResult.load(start_from)
+            sim = StepAvalancheSim.continue_from(past_result)
+            dt = past_result.dt
         result = sim.run_vortex_sim(num_vortices, dt, 9, movement_cutoff=movement_cutoff, print_after=print_after, cutoff_time=100)
+        # Compress the results before saving
         if compress != 1:
             result = result.compress(compress)
         result.save(name)
