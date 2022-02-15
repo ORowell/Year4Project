@@ -7,6 +7,7 @@ import getopt
 from warnings import warn
 import numpy as np
 import tqdm
+from math import ceil
 from abc import ABC, abstractmethod
 
 NP_FORMATTER = {'float': '{: .5e}'.format}
@@ -21,11 +22,11 @@ PIN_STRENGTH    = 3.            # -f, --pin_force
 SEED            = 1001          # -s, --seed
 DT              = 1e-4          # -t, --dt
 REL_STOP_SPEED  = 0.1           #     --rel_stop_speed
-NUM_VORTICES    = 250           # -v, --vortices
-NAME            = ''            # -n, --name
+NUM_VORTICES    = 20           # -v, --vortices
+NAME            = 'pin_cell_list_test'            # -n, --name
 COMPRESS        = 1             # -c, --compress
 START_FROM      = None          #     --start_from
-ANIMATE         = False         # -a, --animate
+ANIMATE         = True         # -a, --animate
 LOAD_FILE       = False         #     --load
 PRINT_AFTER     = None          #     --verbose
 
@@ -103,9 +104,29 @@ class VortexAvalancheBase(Simulation, ABC):
                  pin_size: float, pin_strength: float):
         super().__init__(x_num, y_num, x_repeats, y_repeats)
         
-        self.pinning_sites = np.empty(shape=(0, 2))
         self.pinning_size = pin_size
         self.pinning_strength = pin_strength
+        
+        self._pin_x_cells = ceil(self.x_size/self.pinning_size)
+        self._pin_y_cells = ceil(self.y_size/self.pinning_size)
+        self._pinning_sites = np.empty(shape=(0, 2))
+        self._celled_pin_site: List[List[np.ndarray]] = [[]]
+        
+    @property
+    def pinning_sites(self):
+        return self._pinning_sites
+    
+    @pinning_sites.setter
+    def pinning_sites(self, pin_sites: np.ndarray):
+        self._pinning_sites = pin_sites
+        
+        self._celled_pin_site = [[np.empty(shape=(0, 2)) for j in range(self._pin_x_cells)]
+                                 for i in range(self._pin_y_cells)]
+        cell_loc = np.floor_divide(pin_sites, self.pinning_size).astype(int)
+        for pin_pos, pin_cell in zip(pin_sites, cell_loc):
+            cell_x, cell_y = pin_cell
+            self._celled_pin_site[cell_y][cell_x] = np.append(self._celled_pin_site[cell_y][cell_x],
+                                                              pin_pos[np.newaxis, :], axis=0)
         
     @classmethod
     def create_system(cls, x_size: int, y_size: int, repeats: int, pinned_density: float,
@@ -141,6 +162,18 @@ class VortexAvalancheBase(Simulation, ABC):
     def _pinning_force(self, vortex_pos: np.ndarray):
         """Calculates the force on a vortex due to the attractive pinning sites."""
         raise NotImplementedError
+    
+    def _get_pin_sites(self, vortex_pos: np.ndarray):
+        # return self._pinning_sites
+        cell_x, cell_y = np.floor_divide(vortex_pos, self.pinning_size).astype(int)
+        x_range = [0 if cell_x-1 < 0 else cell_x-1, -1 if cell_x+2 >= self._pin_x_cells else cell_x+2]
+        # TODO: Allow for wrapping
+        y_range = [0 if cell_y-1 < 0 else cell_y-1, -1 if cell_y+2 >= self._pin_y_cells else cell_y+2]
+        pin_sites = np.empty(shape=(0, 2))
+        for rows in self._celled_pin_site[y_range[0]:y_range[1]]:
+            for cell in rows[x_range[0]:x_range[1]]:
+                pin_sites = np.append(pin_sites, cell, axis=0)
+        return pin_sites
     
     def _handle_edges(self):
         # Only wrap in the y-direction
@@ -213,16 +246,13 @@ class VortexAvalancheBase(Simulation, ABC):
                                self.x_size, self.y_size, self.y_images, self.random_gen,
                                force_cutoff, movement_cutoff, cutoff_time,
                                self.pinning_size, self.pinning_strength)
-            
+
 class StepAvalancheSim(VortexAvalancheBase):
     def _pinning_force(self, vortex_pos):
-        displacement = self.pinning_sites - vortex_pos
-        # distances = np.linalg.norm(displacement, axis=1, keepdims=True)
-        # force_strength = self.pinning_strength*(distances<self.pinning_size)
-        
-        # forces = force_strength*displacement/distances
+        displacement = self._get_pin_sites(vortex_pos) - vortex_pos
         distances = np.linalg.norm(displacement, axis=1)
         directions = displacement/distances[:, np.newaxis]
+        
         active_pins = directions[distances<self.pinning_size]
         forces = self.pinning_strength*active_pins
         
@@ -245,7 +275,8 @@ def main(length: int = LENGTH, width: int = WIDTH, repeats: int = REPEATS, densi
         # Compress the results before saving
         if compress != 1:
             result = result.compress(compress)
-        result.save(name)
+        if not PROFILING:
+            result.save(name)
     else:
         result = AvalancheResult.load(name)
         if result is None:
