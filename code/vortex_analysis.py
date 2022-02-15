@@ -60,11 +60,13 @@ def gen_path_plots(save_dir: str, filename: str, inc_pins: bool = True):
         plt.close(fig)
     
 if __name__ == '__main__':
+    # gen_phase_plot('density_sweep_4.0')
     # gen_phase_plot('density_sweep_4.5')
     # gen_phase_plot('density_sweep_5.0')
     # gen_phase_plot('density_sweep_5.5')
     # gen_phase_plot('density_sweep_6.0')
-    animate_file('density_4.5_fixed', os.path.join('results', 'Simulation_results', 'AvalancheResult', 'Density_sweep_avg'), '-avg')
+    # animate_file('density_4.5_fixed', os.path.join('results', 'Simulation_results', 'AvalancheResult', 'Density_sweep'))
+    animate_folder(os.path.join('results', 'Simulation_results', 'AvalancheResult', 'Density_sweep'), '-fixed')
     # gen_path_plots(os.path.join('results', 'Figures', 'Event_paths', 'Density6.0_events'), 'density_sweep_6.0')
     
     input('Press enter to exit')

@@ -209,7 +209,7 @@ class VortexAvalancheBase(Simulation, ABC):
             result_vals.append(new_result_lst)
             removed_vortices.append(new_removed_vortex_lst)
             
-        return AvalancheResult(result_vals, removed_vortices,self.pinning_sites, dt,
+        return AvalancheResult(result_vals, removed_vortices, self.pinning_sites, dt,
                                self.x_size, self.y_size, self.y_images, self.random_gen,
                                force_cutoff, movement_cutoff, cutoff_time,
                                self.pinning_size, self.pinning_strength)
