@@ -249,7 +249,10 @@ class VortexAvalancheBase(Simulation, ABC):
 
 class StepAvalancheSim(VortexAvalancheBase):
     def _pinning_force(self, vortex_pos):
-        displacement = self._get_pin_sites(vortex_pos) - vortex_pos
+        pins = self._get_pin_sites(vortex_pos)
+        if pins.size == 0:
+            return 0
+        displacement = pins - vortex_pos
         distances = np.linalg.norm(displacement, axis=1)
         directions = displacement/distances[:, np.newaxis]
         

@@ -1,5 +1,6 @@
 import timeit
 from typing import Union
+import matplotlib.pyplot as plt
 
 def zero_bessel_time():
     setup = """
@@ -122,7 +123,29 @@ ary = np.random.uniform(0, 10, (100, 2))
     
     return min(timeit.repeat(test, setup, number=int(1e6)))
 
-print(zero_size_norm_time())        # 9.163629099999998     or 9.239294699999995
-print(one_size_norm_time())         # 8.4053362             
-print(one_size_simple_norm_time())  # 7.8467337999999955    or 8.624127400000006
-print(big_size_norm_time())         # 17.320417900000024    or 11.606690099999994
+def norm_time_plot():
+    setup = """
+import numpy as np
+
+ary = np.random.uniform(0, 10, ({size}, 2))
+    """
+    
+    test1 = 'np.linalg.norm(ary, axis=1)'
+    test2 = 'np.sum(ary**2, axis=1)'
+    
+    results1 = []
+    results2 = []
+    for i in range(200):
+        print(i, end='\r')
+        results1.append(min(timeit.repeat(test1, setup.format(size=i), number=int(1e4))))
+        results2.append(min(timeit.repeat(test2, setup.format(size=i), number=int(1e4))))
+        
+    plt.plot(range(200), results1, '.-')
+    plt.plot(range(200), results2, '.-')
+    plt.show()
+
+# print(zero_size_norm_time())        # 9.163629099999998     or 9.239294699999995
+# print(one_size_norm_time())         # 8.4053362             
+# print(one_size_simple_norm_time())  # 7.8467337999999955    or 8.624127400000006
+# print(big_size_norm_time())         # 17.320417900000024    or 11.606690099999994
+norm_time_plot() # Need approx >1200 pins before cell linked lists may be of benefit
