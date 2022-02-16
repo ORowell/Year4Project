@@ -27,7 +27,7 @@ COMPRESS        = 1             # -c, --compress
 START_FROM      = None          #     --start_from
 ANIMATE         = False         # -a, --animate
 LOAD_FILE       = False         #     --load
-PRINT_AFTER     = None          #     --verbose
+PRINT_AFTER     = None          #     --print_after
 
 if __name__ == '__main__':
     argv = sys.argv[1:]
@@ -35,7 +35,8 @@ if __name__ == '__main__':
                             ['profile', 'length=', 'width=', 'repeats=',
                              'density=', 'pin_radius=', 'pin_force=',
                              'seed=', 'dt=', 'rel_stop_speed=', 'vortices=',
-                             'name=', 'compress=', 'animate', 'load', 'print_after='])
+                             'name=', 'compress=', 'start_from=', 'animate',
+                             'load', 'print_after='])
     for opt, arg in opts:
         if opt == '--profile':
             PROFILING = True
@@ -121,8 +122,10 @@ class VortexAvalancheBase(Simulation, ABC):
         obj = cls(int(past_result.x_size), int(past_result.y_size/HALF_ROOT_3), 0,
                   past_result.repeats, past_result.pinning_size, past_result.pinning_strength)
         obj.pinning_sites = past_result.pinning_sites
-        obj.vortices = past_result.values[-1][-1]
+        obj.vortices = past_result.values[-1][-1][-1, :, :]
         obj.random_gen = past_result.random_gen
+        
+        return obj
         
     def _get_all_vortices(self):
         # Add mirror images to stop particles leaving the left side
@@ -185,7 +188,7 @@ class VortexAvalancheBase(Simulation, ABC):
                         print()
                     if print_after is not None and count >= print_after:
                         np_out = np.array2string(displacement[np.argmax(distance)], formatter=NP_FORMATTER)
-                        print(f'Vortex {np.argmax(distance):>3}: {np_out:<35}{movement_cutoff:.2e}', end='\r')
+                        print(f'Vortex {np.argmax(distance):>3}: {np_out:<35}{movement_cutoff*cutoff_time:.2e}', end='\r')
                     
                     if np.all(distance < movement_cutoff*cutoff_time):
                         new_result_lst.append(new_result_ary)
@@ -231,7 +234,7 @@ class StepAvalancheSim(VortexAvalancheBase):
 def main(length: int = LENGTH, width: int = WIDTH, repeats: int = REPEATS, density: float = PIN_DENSITY,
          pin_size: float = PIN_SIZE, pin_strength: float = PIN_STRENGTH, seed: int = SEED, dt: float = DT,
          movement_cutoff: float = MOVEMENT_CUTOFF, num_vortices: int = NUM_VORTICES, name: str = NAME,
-         compress: int = COMPRESS, animate: bool = ANIMATE, start_from: Optional[str] = None,
+         compress: int = COMPRESS, animate: bool = ANIMATE, start_from: Optional[str] = START_FROM,
          load_file: bool = LOAD_FILE, print_after: Optional[int] = PRINT_AFTER):
     if not load_file:
         if start_from is None:
@@ -240,7 +243,6 @@ def main(length: int = LENGTH, width: int = WIDTH, repeats: int = REPEATS, densi
             # Continue from a past state
             past_result = AvalancheResult.load(start_from)
             sim = StepAvalancheSim.continue_from(past_result)
-            dt = past_result.dt
         result = sim.run_vortex_sim(num_vortices, dt, 9, movement_cutoff=movement_cutoff, print_after=print_after, cutoff_time=100)
         # Compress the results before saving
         if compress != 1:

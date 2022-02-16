@@ -27,4 +27,4 @@ def animate_folder(directory: str, output_ext: str = '', single_freq: bool = Tru
         
 if __name__ == '__main__':
     # animate_folder('results\\Simulation_results\\AvalancheResult\\Density_sweep')
-    animate_file('density_sweep_3.0', 'results\\Simulation_results\\AvalancheResult\\Density_sweep')
+    animate_file('continued_6.0', 'results\\Simulation_results\\AvalancheResult\\Density_sweep')
