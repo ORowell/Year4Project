@@ -1,4 +1,5 @@
 from typing import List, Optional
+
 from simulation import Simulation, BAR_FORMAT, HALF_ROOT_3
 from avalanche_analysis_classes import AvalancheResult, AvalancheAnimator
 
@@ -113,7 +114,7 @@ class VortexAvalancheBase(Simulation, ABC):
                       pin_size: float, pin_strength: float, random_seed: Optional[int] = None):
         obj = cls(x_size, y_size, 0, repeats, pin_size, pin_strength)
         num_pins = int(obj.x_size * obj.y_size * pinned_density)
-        obj.pinning_sites = np.append(obj.pinning_sites, obj._generate_random_pos(num_pins, random_seed, 1), axis=0)
+        obj.pinning_sites = np.append(obj.pinning_sites, obj._generate_pin_pos(num_pins, random_seed), axis=0)
         
         return obj
         
@@ -126,6 +127,9 @@ class VortexAvalancheBase(Simulation, ABC):
         obj.random_gen = past_result.random_gen
         
         return obj
+    
+    def _generate_pin_pos(self, n_pins: int, seed: Optional[int] = None):
+        return self._generate_random_pos(n_pins, seed, 1)
         
     def _get_all_vortices(self):
         # Add mirror images to stop particles leaving the left side
@@ -216,8 +220,36 @@ class VortexAvalancheBase(Simulation, ABC):
                                self.x_size, self.y_size, self.y_images, self.random_gen,
                                force_cutoff, movement_cutoff, cutoff_time,
                                self.pinning_size, self.pinning_strength)
-            
-class StepAvalancheSim(VortexAvalancheBase):
+        
+class ShiftedPinLatticeMixin(VortexAvalancheBase):
+    def _generate_pin_pos(self, n_pins: int, seed: Optional[int] = None,
+                          noise_factor: float = 0.2):
+        if seed is not None:
+            # Allow usage of a seed for consistent results, eg. benchmarking
+            self.random_gen = np.random.default_rng(seed)
+        elif self.random_gen is None:
+            self.random_gen = np.random.default_rng()
+        
+        n_x, n_y = 0, 0
+        while n_x*n_y < n_pins:
+            n_y += 1
+            spacing = self.y_size/n_y
+            n_x = int((self.x_size-1)/spacing) + 1
+        extra_pins = n_x*n_y - n_pins
+        print(f'{n_pins = }, {extra_pins = }')
+        
+        x_coors, y_coors = np.meshgrid(spacing*np.arange(n_x) + 1,
+                                       spacing*np.arange(n_y))
+        pins = np.stack((x_coors.flatten(), y_coors.flatten()), axis=1)
+        generated_num_pins = n_x*n_y
+        for i in range(extra_pins):
+            pins = np.delete(pins, self.random_gen.integers(0, generated_num_pins-i), axis=0)
+        
+        noise_pins = pins + self.random_gen.normal(0, spacing*noise_factor, pins.shape)
+        np.mod(noise_pins, self.size_ary, out=noise_pins, where=[False, True])
+        return noise_pins
+        
+class StepAvalancheSim(ShiftedPinLatticeMixin, VortexAvalancheBase):
     def _pinning_force(self, vortex_pos):
         displacement = self.pinning_sites - vortex_pos
         # distances = np.linalg.norm(displacement, axis=1, keepdims=True)
