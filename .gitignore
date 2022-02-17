@@ -136,4 +136,5 @@ dmypy.json
 /Profiles
 /results/Simulation_results
 /results/Figures/Event_paths
+/results/Figures/Density_gradients
 /Figure_dev

@@ -4,6 +4,7 @@ from short_scripts import animate_file, animate_folder
 import os
 from typing import List
 import matplotlib.pyplot as plt
+from matplotlib.axes import Axes
 import numpy as np
 
 def phase_plot(events_lst: List[int], title=None):
@@ -33,12 +34,13 @@ def gen_path_plots(save_dir: str, filename: str, inc_pins: bool = True):
     sizes = result.get_event_sizes(x_min=1, time_start=100)
     for i, path_lst in enumerate(paths):
         fig = plt.figure(figsize=(10, 10*result.y_size/result.x_size))
-        ax = fig.add_subplot(1, 1, 1)
+        ax: Axes = fig.add_subplot(1, 1, 1)
         ax.set_xlim([0, result.x_size])
         ax.set_ylim([0, result.y_size])
         
-        for pinned_vortex in result.pinning_sites:
-            ax.add_artist(plt.Circle(pinned_vortex, result.pinning_size, color='grey', alpha=0.3))
+        if inc_pins:
+            for pinned_vortex in result.pinning_sites:
+                ax.add_artist(plt.Circle(pinned_vortex, result.pinning_size, color='grey', alpha=0.3))
         
         for path in path_lst:
             path_y = path[:, 1]
@@ -58,6 +60,25 @@ def gen_path_plots(save_dir: str, filename: str, inc_pins: bool = True):
                 ax.plot(path[cuts[-1]:, 0], path_y[cuts[-1]:], color=colour)
         plt.savefig(os.path.join(save_dir,  f'vortex_add{i}-size-{sizes[i]}.jpg'))
         plt.close(fig)
+        
+def gen_density_plot(save_dir: str, filename: str):
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+    result = AvalancheResult.load(os.path.join('Density_sweep_avg', filename))
+    x_pos_lst = result.get_settled_x()
+    for i, x_pos in enumerate(x_pos_lst):
+        fig = plt.figure()
+        ax: Axes = fig.add_subplot(1, 1, 1)
+        
+        hist, bins = np.histogram(x_pos, int(result.x_size*2), (0, result.x_size))
+        bin_centres = (bins[1:] + bins[:-1])/2
+        
+        ax.plot(bin_centres, hist)
+        ax.set_xlim(0, result.x_size)
+        ax.set_ylim(0)
+        
+        plt.savefig(os.path.join(save_dir,  f'vortex_add{i}.jpg'))
+        plt.close(fig)
     
 if __name__ == '__main__':
     # gen_phase_plot('density_sweep_4.0')
@@ -65,8 +86,9 @@ if __name__ == '__main__':
     # gen_phase_plot('density_sweep_5.0')
     # gen_phase_plot('density_sweep_5.5')
     # gen_phase_plot('density_sweep_6.0')
-    # animate_file('density_4.5_fixed', os.path.join('results', 'Simulation_results', 'AvalancheResult', 'Density_sweep'))
-    animate_folder(os.path.join('results', 'Simulation_results', 'AvalancheResult', 'Density_sweep'), '-fixed')
-    # gen_path_plots(os.path.join('results', 'Figures', 'Event_paths', 'Density6.0_events'), 'density_sweep_6.0')
+    # input('Press enter to exit')
     
-    input('Press enter to exit')
+    # animate_file('density_4.5_fixed', os.path.join('results', 'Simulation_results', 'AvalancheResult', 'Density_sweep'))
+    # animate_folder(os.path.join('results', 'Simulation_results', 'AvalancheResult', 'Density_sweep'), '-fixed')
+    # gen_path_plots(os.path.join('results', 'Figures', 'Event_paths', 'Density6.0_events'), 'density_sweep_6.0')
+    gen_density_plot(os.path.join('results', 'Figures', 'Density_gradients', 'Density6.0_gradient'), 'density_sweep_6.0')

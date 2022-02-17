@@ -136,10 +136,18 @@ class AvalancheResult(PickleClass):
             events_paths.append(event_paths)
             
         return events_paths
-            
-class AvalancheAnimator:    
+    
+    def get_settled_x(self):
+        output: List[np.ndarray] = []
+        for vortex_added in self.values:
+            end_result_x = vortex_added[-1][-1, :, 0]
+            output.append(end_result_x)
+        return output
+        
+class AvalancheAnimator:
     def animate(self, result: AvalancheResult, filename, anim_freq: int = 1):
         self._result = result
+        self.flat_result = self._result.flatten
         
         n_steps = self._result.flattened_num_t//anim_freq
         self._anim_freq = anim_freq
@@ -169,13 +177,13 @@ class AvalancheAnimator:
         
     def _anim_update(self, frame_num: int):
         self._p_bar.update(1)
-        values = self._result.flatten[frame_num*self._anim_freq]
+        values = self.flat_result[frame_num*self._anim_freq]
         num_vortices = values.shape[0]
         
         compare_frame = frame_num*self._anim_freq - self._result.movement_cutoff_time
         stationary = np.full(num_vortices, True)
         if compare_frame >= 0:
-            last_values = self._result.flatten[compare_frame]
+            last_values = self.flat_result[compare_frame]
             # Only change colours if a vortex wasn't just added/deleted
             if len(last_values) == num_vortices:
                 diff = values - last_values
