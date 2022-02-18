@@ -2,34 +2,43 @@ from avalanche_analysis_classes import AvalancheResult
 from short_scripts import animate_file, animate_folder
 
 import os
-from typing import List
+from typing import List, Optional
 import matplotlib.pyplot as plt
 from matplotlib.axes import Axes
 import numpy as np
 
-def phase_plot(events_lst: List[int], title=None):
+def phase_plot(events_lst: List[int], title=None, exclude_zero: bool = False):
     largest_event = max(events_lst)
     event_freq = [0]*(largest_event+1)
     for event_size in events_lst:
         event_freq[event_size] += 1
+    if exclude_zero:
+        event_freq[0] = 0
     
     fig = plt.figure()
-    ax = fig.add_subplot(1, 1, 1)
+    ax: Axes = fig.add_subplot(1, 1, 1)
     ax.bar(range(largest_event+1), event_freq)
+    ax.set_xlim(0, 60)
+    ax.set_ylim(0)
     
     if title is not None:
         plt.title(title)
     
     plt.show(block=False)
 
-def gen_phase_plot(filename: str):
-    result = AvalancheResult.load(os.path.join('Density_sweep_avg', filename))
-    phase_plot(result.get_event_sizes(x_min=1, time_start=100), filename)
+def gen_phase_plot(filename: str, exclude_zero: bool = False, save_dir: Optional[str] = None,
+                   time_start: int = 0):
+    result = AvalancheResult.load(os.path.join('Density_sweep', filename))
+    phase_plot(result.get_event_sizes(x_min=1, time_start=time_start), filename, exclude_zero)
+    if save_dir is not None:
+        if not os.path.exists(save_dir):
+            os.makedirs(save_dir)
+        plt.savefig(os.path.join(save_dir,  f'{filename}.jpg'))
     
 def gen_path_plots(save_dir: str, filename: str, inc_pins: bool = True):
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
-    result = AvalancheResult.load(os.path.join('Density_sweep_avg', filename))
+    result = AvalancheResult.load(os.path.join('Density_sweep', filename))
     paths = result.get_event_paths(x_min=1, time_start=100)
     sizes = result.get_event_sizes(x_min=1, time_start=100)
     for i, path_lst in enumerate(paths):
@@ -81,14 +90,13 @@ def gen_density_plot(save_dir: str, filename: str):
         plt.close(fig)
     
 if __name__ == '__main__':
-    # gen_phase_plot('density_sweep_4.0')
-    # gen_phase_plot('density_sweep_4.5')
-    # gen_phase_plot('density_sweep_5.0')
-    # gen_phase_plot('density_sweep_5.5')
-    # gen_phase_plot('density_sweep_6.0')
-    # input('Press enter to exit')
+    plots = [0.5, 2.0, 3.0, 3.5, 4.0, 4.5, 5.0, 6.0]
+    for d in plots:
+        gen_phase_plot(f'continued_{d:.1f}', True, os.path.join('results', 'Figures', 'Phase_plots'), 10)
+    gen_phase_plot('density_4.5_spread', True, os.path.join('results', 'Figures', 'Phase_plots'), 100)
+    input('Press enter to exit')
     
-    # animate_file('density_4.5_fixed', os.path.join('results', 'Simulation_results', 'AvalancheResult', 'Density_sweep'))
+    # animate_file('density_4.5_spread', os.path.join('results', 'Simulation_results', 'AvalancheResult', 'Density_sweep'))
     # animate_folder(os.path.join('results', 'Simulation_results', 'AvalancheResult', 'Density_sweep'), '-fixed')
-    # gen_path_plots(os.path.join('results', 'Figures', 'Event_paths', 'Density6.0_events'), 'density_sweep_6.0')
-    gen_density_plot(os.path.join('results', 'Figures', 'Density_gradients', 'Density6.0_gradient'), 'density_sweep_6.0')
+    # gen_path_plots(os.path.join('results', 'Figures', 'Event_paths', 'Density6.0_cont_events'), 'continued_6.0')
+    # gen_density_plot(os.path.join('results', 'Figures', 'Density_gradients', 'Density6.0_gradient'), 'density_sweep_6.0')
