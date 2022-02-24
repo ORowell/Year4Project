@@ -1,4 +1,4 @@
-from typing import List, Tuple
+from typing import List, Tuple, Union
 from simulation import PickleClass, BAR_FORMAT
 
 import os
@@ -32,13 +32,12 @@ class AvalancheResult(PickleClass):
     def __post_init__(self):
         self.size_ary = np.array([self.x_size, self.y_size])
         self.vortices_added = len(self.values)
-        flattened_values = self.flatten
+        flattened_values = self.flatten()
         self.flattened_num_t = len(flattened_values)
         shapes = [values.shape for values in flattened_values]
         self.max_vortices = max(shapes, key=itemgetter(0))[0]
         
-    @property
-    def flatten(self):
+    def flatten(self, event_range: Union[int, slice] = slice(None)):
         """Return the result as just a list of varying array shape.
         """
         """
@@ -47,14 +46,18 @@ class AvalancheResult(PickleClass):
         movement.
         """
         output: List[np.ndarray] = []
-        for vortex_add_lst in self.values:
+        if isinstance(event_range, int):
+            vals_to_use = [self.values[event_range]]
+        else:
+            vals_to_use = self.values[event_range]
+        for vortex_add_lst in vals_to_use:
             for ary in vortex_add_lst:
                 # # Don't include the in between data (just before a vortex is deleted)
                 # ary = ary[:-1]
                 for data in ary:
                     output.append(data)
-            # But do include the final one after movement has ended
-            output.append(vortex_add_lst[-1][-1])
+            # # But do include the final one after movement has ended
+            # output.append(vortex_add_lst[-1][-1])
         return output
     
     def compress(self, freq, keep_final=False):
@@ -145,11 +148,13 @@ class AvalancheResult(PickleClass):
         return output
         
 class AvalancheAnimator:
-    def animate(self, result: AvalancheResult, filename, anim_freq: int = 1):
+    def animate(self, result: AvalancheResult, filename, anim_freq: int = 1,
+                event_range: Union[int, slice] = slice(None)):
         self._result = result
-        self.flat_result = self._result.flatten
+        self.flat_result = self._result.flatten(event_range)
+        self._y_size = self._result.y_size
         
-        n_steps = self._result.flattened_num_t//anim_freq
+        n_steps = len(self.flat_result)//anim_freq
         self._anim_freq = anim_freq
         self._p_bar = tqdm.tqdm(total=n_steps+1, desc='Animating ', unit='fr', bar_format=BAR_FORMAT)
         
@@ -172,6 +177,12 @@ class AvalancheAnimator:
         
         for vortex in self._result.pinning_sites:
             ax.add_artist(plt.Circle(vortex, self._result.pinning_size, color='grey', alpha=0.3))
+            # Double draw vortices that go over the edge
+            vortex_y = vortex[1]
+            if vortex_y < self._result.pinning_size:
+                ax.add_artist(plt.Circle([vortex[0], vortex_y+self._y_size], self._result.pinning_size, color='grey', alpha=0.3))
+            elif vortex_y > self._y_size - self._result.pinning_size:
+                ax.add_artist(plt.Circle([vortex[0], vortex_y-self._y_size], self._result.pinning_size, color='grey', alpha=0.3))
         
         return fig, ax
         

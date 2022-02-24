@@ -7,7 +7,8 @@ import matplotlib.pyplot as plt
 from matplotlib.axes import Axes
 import numpy as np
 
-def phase_plot(events_lst: List[int], title=None, exclude_zero: bool = False):
+def phase_plot(events_lst: List[int], title=None, exclude_zero: bool = False,
+               show: bool = True):
     largest_event = max(events_lst)
     event_freq = [0]*(largest_event+1)
     for event_size in events_lst:
@@ -24,23 +25,24 @@ def phase_plot(events_lst: List[int], title=None, exclude_zero: bool = False):
     if title is not None:
         plt.title(title)
     
-    plt.show(block=False)
+    if show:
+        plt.show(block=False)
 
 def gen_phase_plot(filename: str, exclude_zero: bool = False, save_dir: Optional[str] = None,
-                   time_start: int = 0):
-    result = AvalancheResult.load(os.path.join('Density_sweep', filename))
-    phase_plot(result.get_event_sizes(x_min=1, time_start=time_start), filename, exclude_zero)
+                   time_start: int = 0, show: bool = True):
+    result = AvalancheResult.load(os.path.join('New_pins', filename))
+    phase_plot(result.get_event_sizes(x_min=1, time_start=time_start), filename, exclude_zero, show)
     if save_dir is not None:
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
         plt.savefig(os.path.join(save_dir,  f'{filename}.jpg'))
     
-def gen_path_plots(save_dir: str, filename: str, inc_pins: bool = True):
+def gen_path_plots(save_dir: str, filename: str, inc_pins: bool = True, time_start: int = 0):
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
-    result = AvalancheResult.load(os.path.join('Density_sweep', filename))
-    paths = result.get_event_paths(x_min=1, time_start=100)
-    sizes = result.get_event_sizes(x_min=1, time_start=100)
+    result = AvalancheResult.load(os.path.join('New_pins', filename))
+    paths = result.get_event_paths(x_min=1, time_start=time_start)
+    sizes = result.get_event_sizes(x_min=1, time_start=time_start)
     for i, path_lst in enumerate(paths):
         fig = plt.figure(figsize=(10, 10*result.y_size/result.x_size))
         ax: Axes = fig.add_subplot(1, 1, 1)
@@ -50,6 +52,12 @@ def gen_path_plots(save_dir: str, filename: str, inc_pins: bool = True):
         if inc_pins:
             for pinned_vortex in result.pinning_sites:
                 ax.add_artist(plt.Circle(pinned_vortex, result.pinning_size, color='grey', alpha=0.3))
+                # Double draw vortices that go over the edge
+                vortex_y = pinned_vortex[1]
+                if vortex_y < result.pinning_size:
+                    ax.add_artist(plt.Circle([pinned_vortex[0], vortex_y+result.y_size], result.pinning_size, color='grey', alpha=0.3))
+                elif vortex_y > result.y_size - result.pinning_size:
+                    ax.add_artist(plt.Circle([pinned_vortex[0], vortex_y-result.y_size], result.pinning_size, color='grey', alpha=0.3))
         
         for path in path_lst:
             path_y = path[:, 1]
@@ -67,7 +75,7 @@ def gen_path_plots(save_dir: str, filename: str, inc_pins: bool = True):
                         continue
                     ax.plot(path[cuts[j]:cuts[j+1], 0], path_y[cuts[j]:cuts[j+1]], color=colour)
                 ax.plot(path[cuts[-1]:, 0], path_y[cuts[-1]:], color=colour)
-        plt.savefig(os.path.join(save_dir,  f'vortex_add{i}-size-{sizes[i]}.jpg'))
+        plt.savefig(os.path.join(save_dir,  f'vortex_add{i+time_start}-size-{sizes[i]}.jpg'))
         plt.close(fig)
         
 def gen_density_plot(save_dir: str, filename: str):
@@ -90,13 +98,15 @@ def gen_density_plot(save_dir: str, filename: str):
         plt.close(fig)
     
 if __name__ == '__main__':
-    plots = [0.5, 2.0, 3.0, 3.5, 4.0, 4.5, 5.0, 6.0]
-    for d in plots:
-        gen_phase_plot(f'continued_{d:.1f}', True, os.path.join('results', 'Figures', 'Phase_plots'), 10)
-    gen_phase_plot('density_4.5_spread', True, os.path.join('results', 'Figures', 'Phase_plots'), 100)
-    input('Press enter to exit')
+    # plots = [0.5, 1.0, 1.5, 3.0, 4.5, 5.0, 5.5, 6.0]
+    # for d in plots:
+    #     print(d)
+    #     gen_phase_plot(f'new_pins_continued_{d:.1f}', True, os.path.join('results', 'Figures', 'Phase_plots'), 10, False)
+    # # gen_phase_plot('density_4.5_spread', True, os.path.join('results', 'Figures', 'Phase_plots'), 100)
+    # plt.show(block=False)
+    # input('Press enter to exit')
     
-    # animate_file('density_4.5_spread', os.path.join('results', 'Simulation_results', 'AvalancheResult', 'Density_sweep'))
-    # animate_folder(os.path.join('results', 'Simulation_results', 'AvalancheResult', 'Density_sweep'), '-fixed')
-    # gen_path_plots(os.path.join('results', 'Figures', 'Event_paths', 'Density6.0_cont_events'), 'continued_6.0')
+    animate_file('new_pins_continued_5.0', os.path.join('results', 'Simulation_results', 'AvalancheResult', 'New_pins'))#, event_range=193, output_ext='_event93')
+    # animate_folder(os.path.join('results', 'Simulation_results', 'AvalancheResult', 'Density_sweep'))
+    # gen_path_plots(os.path.join('results', 'Figures', 'Event_paths', 'NewPins5.0_cont_events'), 'new_pins_continued_5.0', time_start=10)
     # gen_density_plot(os.path.join('results', 'Figures', 'Density_gradients', 'Density6.0_gradient'), 'density_sweep_6.0')

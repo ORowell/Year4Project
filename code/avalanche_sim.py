@@ -29,6 +29,7 @@ START_FROM      = None          #     --start_from
 ANIMATE         = False         # -a, --animate
 LOAD_FILE       = False         #     --load
 PRINT_AFTER     = None          #     --print_after
+MAX_TIME        = None          #     --max_time
 
 if __name__ == '__main__':
     argv = sys.argv[1:]
@@ -37,7 +38,7 @@ if __name__ == '__main__':
                              'density=', 'pin_radius=', 'pin_force=',
                              'seed=', 'dt=', 'rel_stop_speed=', 'vortices=',
                              'name=', 'compress=', 'start_from=', 'animate',
-                             'load', 'print_after='])
+                             'load', 'print_after=', 'max_time='])
     for opt, arg in opts:
         if opt == '--profile':
             PROFILING = True
@@ -90,6 +91,9 @@ if __name__ == '__main__':
         elif opt in ('-p', '--print_after'):
             PRINT_AFTER = int(arg)
             print(f'Setting {PRINT_AFTER = }')
+        elif opt == '--max_time':
+            MAX_TIME = int(arg)
+            print(f'Setting {MAX_TIME = }')
 
 MOVEMENT_CUTOFF = REL_STOP_SPEED * PIN_STRENGTH * DT
 if PROFILING:
@@ -154,7 +158,8 @@ class VortexAvalancheBase(Simulation, ABC):
         np.mod(self.vortices, self.size_ary, out=self.vortices, where=[False, True])
         
     def run_vortex_sim(self, total_added: int, dt: float, force_cutoff: float, movement_cutoff: float,
-                       cutoff_time: int = 1, include_pbar: bool = True, print_after: Optional[int] = None):
+                       cutoff_time: int = 1, include_pbar: bool = True, print_after: Optional[int] = None,
+                       max_time_steps: Optional[int] = None):
         # if dt*self.pinning_strength > movement_cutoff:
         #     warn(f'Pinning force is greater than allowed movement for given dt ({dt*self.pinning_strength} > {movement_cutoff}). \
         #         Pinned vortices may move too much to be deemed stationary.')
@@ -169,15 +174,18 @@ class VortexAvalancheBase(Simulation, ABC):
             iterator = tqdm.tqdm(range(total_added), desc='Simulating', bar_format=BAR_FORMAT)
         else:
             iterator = range(total_added)
+        total_time_steps = 0
         for i in iterator:
+            print(i)
             new_removed_vortex_lst: List[int] = []
             # Add a new vortex within the first lattice spacing
             self.add_vortex(self.random_gen.uniform(0, 1), self.random_gen.uniform(0, self.y_size))
             new_result_lst = []
             new_result_ary = self.vortices.copy()[np.newaxis, ...]
-            count = 0
-            while True:
-                count += 1
+            this_vortex_count = 0
+            while max_time_steps is None or total_time_steps < max_time_steps:
+                this_vortex_count += 1
+                total_time_steps += 1
                 self._step(dt, force_cutoff)
                 new_result_ary = np.append(new_result_ary, self.vortices[np.newaxis, ...], axis=0)
                 
@@ -188,15 +196,15 @@ class VortexAvalancheBase(Simulation, ABC):
                     distance = np.linalg.norm(displacement, axis=1)
                     
                     # If this event is taking a long time print out updates
-                    if count == print_after:
+                    if this_vortex_count == print_after:
                         print()
-                    if print_after is not None and count >= print_after:
+                    if print_after is not None and this_vortex_count >= print_after:
                         np_out = np.array2string(displacement[np.argmax(distance)], formatter=NP_FORMATTER)
                         print(f'Vortex {np.argmax(distance):>3}: {np_out:<35}{movement_cutoff*cutoff_time:.2e}', end='\r')
                     
                     if np.all(distance < movement_cutoff*cutoff_time):
                         new_result_lst.append(new_result_ary)
-                        if include_pbar and print_after is not None and count >= print_after:
+                        if include_pbar and print_after is not None and this_vortex_count >= print_after:
                             sys.stdout.write("\x1b[1A")
                         break
                 
@@ -215,6 +223,9 @@ class VortexAvalancheBase(Simulation, ABC):
                 new_result_lst.append(new_result_ary)
             result_vals.append(new_result_lst)
             removed_vortices.append(new_removed_vortex_lst)
+            if max_time_steps is not None and total_time_steps >= max_time_steps:
+                print('Hit time step count. Ending simulation')
+                break
             
         return AvalancheResult(result_vals, removed_vortices, self.pinning_sites, dt,
                                self.x_size, self.y_size, self.y_images, self.random_gen,
@@ -270,14 +281,18 @@ def main(length: int = LENGTH, width: int = WIDTH, repeats: int = REPEATS, densi
          load_file: bool = LOAD_FILE, print_after: Optional[int] = PRINT_AFTER):
     if not load_file:
         if start_from is None:
+            print('Creating simulation')
             sim = StepAvalancheSim.create_system(length, width, repeats, density, pin_size, pin_strength, seed)
         else:
             # Continue from a past state
+            print(f'Loading past result at {start_from}')
             past_result = AvalancheResult.load(start_from)
             sim = StepAvalancheSim.continue_from(past_result)
-        result = sim.run_vortex_sim(num_vortices, dt, 9, movement_cutoff=movement_cutoff, print_after=print_after, cutoff_time=100)
+            print('Running simulation')
+        result = sim.run_vortex_sim(num_vortices, dt, 9, movement_cutoff=movement_cutoff, print_after=print_after, cutoff_time=100, include_pbar=False)
         # Compress the results before saving
         if compress != 1:
+            print('Compressing results file')
             result = result.compress(compress)
         result.save(name)
     else:

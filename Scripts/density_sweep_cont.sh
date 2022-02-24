@@ -15,4 +15,4 @@ densities=($(seq 0.5 0.5 6.0))
 set -e
 module purge; module load bluebear
 module load BEAR-Python-DataScience/2020a-foss-2020a-Python-3.8.2
-python code/avalanche_sim.py --start_from "density_sweep_${densities[${SLURM_ARRAY_TASK_ID}]}" -p 1000000 -c 10 -n "continued_${densities[${SLURM_ARRAY_TASK_ID}]}" -v 500
+python code/avalanche_sim.py --start_from "new_pins_density_sweep_${densities[${SLURM_ARRAY_TASK_ID}]}" -p 1000000 -c 10 -n "new_pins_continued_${densities[${SLURM_ARRAY_TASK_ID}]}" -v 500 --max_time 10000000
