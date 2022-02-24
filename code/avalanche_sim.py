@@ -94,6 +94,7 @@ if __name__ == '__main__':
         elif opt == '--max_time':
             MAX_TIME = int(arg)
             print(f'Setting {MAX_TIME = }')
+    sys.stdout.flush()
 
 MOVEMENT_CUTOFF = REL_STOP_SPEED * PIN_STRENGTH * DT
 if PROFILING:
@@ -176,7 +177,6 @@ class VortexAvalancheBase(Simulation, ABC):
             iterator = range(total_added)
         total_time_steps = 0
         for i in iterator:
-            print(i)
             new_removed_vortex_lst: List[int] = []
             # Add a new vortex within the first lattice spacing
             self.add_vortex(self.random_gen.uniform(0, 1), self.random_gen.uniform(0, self.y_size))
@@ -224,7 +224,7 @@ class VortexAvalancheBase(Simulation, ABC):
             result_vals.append(new_result_lst)
             removed_vortices.append(new_removed_vortex_lst)
             if max_time_steps is not None and total_time_steps >= max_time_steps:
-                print('Hit time step count. Ending simulation')
+                print('Hit time step count. Ending simulation', flush=True)
                 break
             
         return AvalancheResult(result_vals, removed_vortices, self.pinning_sites, dt,
@@ -247,7 +247,6 @@ class ShiftedPinLatticeMixin(VortexAvalancheBase):
             spacing = self.y_size/n_y
             n_x = int((self.x_size-1)/spacing) + 1
         extra_pins = n_x*n_y - n_pins
-        print(f'{n_pins = }, {extra_pins = }')
         
         x_coors, y_coors = np.meshgrid(spacing*np.arange(n_x) + 1,
                                        spacing*np.arange(n_y))
@@ -281,18 +280,18 @@ def main(length: int = LENGTH, width: int = WIDTH, repeats: int = REPEATS, densi
          load_file: bool = LOAD_FILE, print_after: Optional[int] = PRINT_AFTER):
     if not load_file:
         if start_from is None:
-            print('Creating simulation')
+            print('Creating simulation', flush=True)
             sim = StepAvalancheSim.create_system(length, width, repeats, density, pin_size, pin_strength, seed)
         else:
             # Continue from a past state
-            print(f'Loading past result at {start_from}')
+            print(f'Loading past result at {start_from}', flush=True)
             past_result = AvalancheResult.load(start_from)
             sim = StepAvalancheSim.continue_from(past_result)
-            print('Running simulation')
+            print('Running simulation', flush=True)
         result = sim.run_vortex_sim(num_vortices, dt, 9, movement_cutoff=movement_cutoff, print_after=print_after, cutoff_time=100, include_pbar=False)
         # Compress the results before saving
         if compress != 1:
-            print('Compressing results file')
+            print('Compressing results file', flush=True)
             result = result.compress(compress)
         result.save(name)
     else:

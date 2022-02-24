@@ -25,6 +25,7 @@ for opt, arg in opts:
     elif opt in ('-r', '--replace_old'):
         REPLACE_OLD = True
         print(f'Setting {REPLACE_OLD = }')
+sys.stdout.flush()
         
 if NAME is None:
     raise RuntimeError('Name must be specified')
@@ -32,12 +33,12 @@ if NAME is None:
 result = AvalancheResult.load(NAME, DIRECTORY)
 if not isinstance(result, AvalancheResult):
     raise FileNotFoundError(f'Could not find file: {NAME}')
-print('Loaded result')
+print('Loaded result', flush=True)
 comp_result = result.compress(FREQ)
-print('Compressed result')
+print('Compressed result', flush=True)
 # Remove result from memory
 result = None
-print('Saving compressed result')
+print('Saving compressed result', flush=True)
 if REPLACE_OLD:
     comp_result.save(NAME, DIRECTORY)
 else:

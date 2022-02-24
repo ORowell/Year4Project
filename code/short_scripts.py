@@ -7,7 +7,7 @@ def animate_file(filename: str, directory: str, output_ext: str = '', freq: Opti
                  event_range: Union[int, slice] = slice(None)):
     result = AvalancheResult.load(filename, directory)
     if result is None:
-        print(f'Failed to load {filename}')
+        print(f'Failed to load {filename}', flush=True)
         return
     if freq is None:
         print(f'{result.movement_cutoff = }, {result.movement_cutoff_time = }')

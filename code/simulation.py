@@ -19,11 +19,11 @@ class PickleClass:
         if directory is None:
             directory = SAVE_LOCATION.format(cls=self.__class__)
         if not os.path.exists(directory):
-            print('Making dirs at', directory)
+            print('Making dirs at', directory, flush=True)
             os.makedirs(directory)
         file_location = os.path.join(directory, filename)
         with open(file_location, 'wb') as f:
-            print('Saving file to', file_location)
+            print('Saving file to', file_location, flush=True)
             pickle.dump(self, f)
             
     @classmethod
@@ -33,7 +33,7 @@ class PickleClass:
             directory = SAVE_LOCATION.format(cls=cls)
         if not os.path.exists(directory):
             if not quiet:
-                print(f'{directory} not found')
+                print(f'{directory} not found', flush=True)
             return None
         with open(os.path.join(directory, filename), 'rb') as f:
             result = pickle.load(f)
