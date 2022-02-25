@@ -85,6 +85,16 @@ class AvalancheResult(PickleClass):
                                self.x_size, self.y_size, self.repeats, self.random_gen,
                                self.force_cutoff, self.movement_cutoff, self.movement_cutoff_time,
                                self.pinning_size, self.pinning_strength)
+        
+    def to_basic_result(self):
+        events = []
+        for i, (event_data, removed_vortices) in enumerate(zip(self.values, self.removed_vortices)):
+            events.append(Event.from_data(event_data, removed_vortices, self.dt, i))
+            
+        return BasicAvalancheResult(events, self.pinning_sites, self.x_size, self.y_size,
+                                    self.repeats, self.random_gen, self.force_cutoff,
+                                    self.movement_cutoff, self.movement_cutoff_time,
+                                    self.pinning_size, self.pinning_strength)
     
     def get_event_sizes(self, rel_cutoff: float = 2, time_start: int = 0, x_min: float = 0):
         events: List[int] = []
@@ -146,7 +156,52 @@ class AvalancheResult(PickleClass):
             end_result_x = vortex_added[-1][-1, :, 0]
             output.append(end_result_x)
         return output
+    
+@dataclass
+class Event:
+    moved_vortices: np.ndarray
+    removed_vortices: np.ndarray
+    time_length: float
+    number: int
+    
+    @classmethod
+    def from_data(cls, event_values: List[np.ndarray], removed_vortex_is: List[int], dt: float, number: int):
+        start_pos = event_values[0][0, ...]
+        end_pos = event_values[-1][-1, ...]
+        removed_vortices = np.empty(shape=(0, 2))
         
+        # Separate removed vortices from the other data
+        for removed_i in removed_vortex_is:
+            removed_vortices = np.append(removed_vortices, start_pos[removed_i, :], axis=0)
+            start_pos = np.delete(start_pos, removed_i, axis=0)
+        
+        event_data = np.stack((start_pos, end_pos), axis=0)
+        
+        # Calculate the number of time steps in the event
+        time_steps = sum(map(lambda ary: len(ary)-1, event_values))
+        
+        return cls(event_data, removed_vortices, time_steps*dt, number)
+    
+@dataclass
+class BasicAvalancheResult(PickleClass):
+    events: List[Event]
+    pinning_sites: np.ndarray
+    x_size: float
+    y_size: float
+    repeats: int
+    random_gen: np.random.Generator
+    force_cutoff: float
+    movement_cutoff: float
+    movement_cutoff_time: int
+    pinning_size: float
+    pinning_strength: float
+    size_ary: np.ndarray = field(init=False)
+    vortices_added: int = field(init=False)
+    
+    def __post_init__(self):
+        self.size_ary = np.array([self.x_size, self.y_size])
+        self.vortices_added = len(self.events)
+    
 class AvalancheAnimator:
     def animate(self, result: AvalancheResult, filename, anim_freq: int = 1,
                 event_range: Union[int, slice] = slice(None)):

@@ -98,15 +98,15 @@ def gen_density_plot(save_dir: str, filename: str):
         plt.close(fig)
     
 if __name__ == '__main__':
-    # plots = [0.5, 1.0, 1.5, 3.0, 4.5, 5.0, 5.5, 6.0]
-    # for d in plots:
-    #     print(d)
-    #     gen_phase_plot(f'new_pins_continued_{d:.1f}', True, os.path.join('results', 'Figures', 'Phase_plots'), 10, False)
-    # # gen_phase_plot('density_4.5_spread', True, os.path.join('results', 'Figures', 'Phase_plots'), 100)
-    # plt.show(block=False)
-    # input('Press enter to exit')
+    plots = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 4.5, 5.0, 5.5, 6.0]
+    for d in plots:
+        print(d)
+        gen_phase_plot(f'new_pins_continued_{d:.1f}', True, os.path.join('results', 'Figures', 'Phase_plots'), 10, False)
+    # gen_phase_plot('density_4.5_spread', True, os.path.join('results', 'Figures', 'Phase_plots'), 100)
+    plt.show(block=False)
+    input('Press enter to exit')
     
-    animate_file('new_pins_continued_5.0', os.path.join('results', 'Simulation_results', 'AvalancheResult', 'New_pins'))#, event_range=193, output_ext='_event93')
+    # animate_file('new_pins_continued_5.0', os.path.join('results', 'Simulation_results', 'AvalancheResult', 'New_pins'))#, event_range=193, output_ext='_event93')
     # animate_folder(os.path.join('results', 'Simulation_results', 'AvalancheResult', 'Density_sweep'))
     # gen_path_plots(os.path.join('results', 'Figures', 'Event_paths', 'NewPins5.0_cont_events'), 'new_pins_continued_5.0', time_start=10)
     # gen_density_plot(os.path.join('results', 'Figures', 'Density_gradients', 'Density6.0_gradient'), 'density_sweep_6.0')

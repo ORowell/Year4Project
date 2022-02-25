@@ -101,7 +101,7 @@ if PROFILING:
     ANIMATE = False
     LOAD_FILE = False
 if NAME == '':
-    NAME = f'test{SEED}_short'
+    NAME = f'test{SEED}'
 
 class VortexAvalancheBase(Simulation, ABC):
     X_NEG_ARY = np.array([-1,1])
@@ -226,6 +226,8 @@ class VortexAvalancheBase(Simulation, ABC):
             if max_time_steps is not None and total_time_steps >= max_time_steps:
                 print('Hit time step count. Ending simulation', flush=True)
                 break
+        else:
+            print(f'Simulation completed in {total_time_steps} time steps', flush=True)
             
         return AvalancheResult(result_vals, removed_vortices, self.pinning_sites, dt,
                                self.x_size, self.y_size, self.y_images, self.random_gen,
@@ -277,7 +279,7 @@ def main(length: int = LENGTH, width: int = WIDTH, repeats: int = REPEATS, densi
          pin_size: float = PIN_SIZE, pin_strength: float = PIN_STRENGTH, seed: int = SEED, dt: float = DT,
          movement_cutoff: float = MOVEMENT_CUTOFF, num_vortices: int = NUM_VORTICES, name: str = NAME,
          compress: int = COMPRESS, animate: bool = ANIMATE, start_from: Optional[str] = START_FROM,
-         load_file: bool = LOAD_FILE, print_after: Optional[int] = PRINT_AFTER):
+         load_file: bool = LOAD_FILE, print_after: Optional[int] = PRINT_AFTER, max_time: Optional[int] = MAX_TIME):
     if not load_file:
         if start_from is None:
             print('Creating simulation', flush=True)
@@ -287,11 +289,12 @@ def main(length: int = LENGTH, width: int = WIDTH, repeats: int = REPEATS, densi
             print(f'Loading past result at {start_from}', flush=True)
             past_result = AvalancheResult.load(start_from)
             sim = StepAvalancheSim.continue_from(past_result)
-            print('Running simulation', flush=True)
-        result = sim.run_vortex_sim(num_vortices, dt, 9, movement_cutoff=movement_cutoff, print_after=print_after, cutoff_time=100, include_pbar=False)
+        print('Running simulation', flush=True)
+        result = sim.run_vortex_sim(num_vortices, dt, 9, movement_cutoff, 100,
+                                    print_after=print_after, max_time_steps=max_time)
         # Compress the results before saving
         if compress != 1:
-            print('Compressing results file', flush=True)
+            print(f'Compressing results file by factor of {compress}', flush=True)
             result = result.compress(compress)
         result.save(name)
     else:

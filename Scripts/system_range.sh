@@ -1,13 +1,15 @@
 #!/bin/bash
 #SBATCH --ntasks 2
-#SBATCH --time 4:0:0
+#SBATCH --mem 16G
+#SBATCH --time 10-0:0:0
 #SBATCH --account watkinjs-supercon
 #SBATCH --qos bbdefault
 #SBATCH --mail-type ALL
+#SBATCH --array 0-39
 
 cd /rds/projects/w/watkinjs-supercon/O_VortexAvalances
 
 set -e
 module purge; module load bluebear
 module load BEAR-Python-DataScience/2020a-foss-2020a-Python-3.8.2
-python code/avalanche_sim.py -n "continued_2.5" -p 1000000 -c 10 --max_time 10000000 -v 500 --start_from "density_sweep_2.5"
+python code/run_avalanche_sim.py -s ${SLURM_ARRAY_TASK_ID} -n "system_seed_${SLURM_ARRAY_TASK_ID}" --print_after 1000000
