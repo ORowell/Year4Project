@@ -96,7 +96,7 @@ class AvalancheResult(PickleClass):
                                     self.movement_cutoff, self.movement_cutoff_time,
                                     self.pinning_size, self.pinning_strength)
     
-    def get_event_sizes(self, rel_cutoff: float = 2, time_start: int = 0, x_min: float = 0):
+    def get_event_sizes(self, time_start: int = 0, x_min: float = 1, rel_cutoff: float = 2):
         events: List[int] = []
         is_events = self.get_events(rel_cutoff, time_start, x_min)
         for del_vortices, is_event in is_events:
@@ -126,7 +126,7 @@ class AvalancheResult(PickleClass):
             is_events.append((del_vortices, is_event))
         return is_events
     
-    def get_event_paths(self, rel_cutoff: float = 2, time_start: int = 0, x_min: float = 0):
+    def get_event_paths(self, time_start: int = 0, x_min: float = 1, rel_cutoff: float = 2):
         events_paths: List[List[np.ndarray]] = []
         is_events = self.get_events(rel_cutoff, time_start, x_min)
         for (del_vortices, is_event), data in zip(is_events, self.values[time_start:]):
@@ -201,6 +201,39 @@ class BasicAvalancheResult(PickleClass):
     def __post_init__(self):
         self.size_ary = np.array([self.x_size, self.y_size])
         self.vortices_added = len(self.events)
+    
+    def get_event_sizes(self, time_start: int = 0, x_min: float = 1, rel_cutoff: float = 2):
+        events: List[int] = []
+        is_events = self.get_events(rel_cutoff, time_start, x_min)
+        for removed_num, is_event in is_events:
+            # Count all vortices that left the system as being part of the event
+            num_event = removed_num
+            num_event += np.count_nonzero(is_event)
+            
+            events.append(num_event)
+        return events
+    
+    def get_events(self, rel_cutoff: float = 2, time_start: int = 0, x_min: float = 0):
+        is_events: List[Tuple[int, np.ndarray]] = []
+        # Iterate through each added vortex
+        for event in self.events[time_start:]:
+            start_pos = event.moved_vortices[0]
+            end_pos = event.moved_vortices[-1]
+            
+            displacement = end_pos - start_pos
+            displacement = np.mod(displacement + self.size_ary/2, self.size_ary) - self.size_ary/2
+            distance_moved = np.linalg.norm(displacement, axis=1)
+            is_event = np.logical_and(distance_moved > rel_cutoff*self.pinning_size, end_pos[:, 0] >= x_min)
+            
+            is_events.append((len(event.removed_vortices), is_event))
+        return is_events
+    
+    def get_settled_x(self):
+        output: List[np.ndarray] = []
+        for event in self.events:
+            end_result_x = event.moved_vortices[-1]
+            output.append(end_result_x)
+        return output
     
 class AvalancheAnimator:
     def animate(self, result: AvalancheResult, filename, anim_freq: int = 1,

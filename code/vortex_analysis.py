@@ -1,11 +1,12 @@
-from avalanche_analysis_classes import AvalancheResult
+from avalanche_analysis_classes import AvalancheResult, BasicAvalancheResult
 from short_scripts import animate_file, animate_folder
 
 import os
-from typing import List, Optional
+from typing import List, Optional, Tuple, Type, Union
 import matplotlib.pyplot as plt
 from matplotlib.axes import Axes
 import numpy as np
+from scipy.optimize import fsolve
 
 def phase_plot(events_lst: List[int], title=None, exclude_zero: bool = False,
                show: bool = True):
@@ -27,22 +28,30 @@ def phase_plot(events_lst: List[int], title=None, exclude_zero: bool = False,
     
     if show:
         plt.show(block=False)
+    
+    return fig, ax
 
 def gen_phase_plot(filename: str, exclude_zero: bool = False, save_dir: Optional[str] = None,
-                   time_start: int = 0, show: bool = True):
-    result = AvalancheResult.load(os.path.join('New_pins', filename))
-    phase_plot(result.get_event_sizes(x_min=1, time_start=time_start), filename, exclude_zero, show)
+                   time_start: int = 0, show: bool = True, s_max: Optional[int] = None,
+                   result_type: Union[Type[AvalancheResult], Type[BasicAvalancheResult]] = AvalancheResult):
+    result = result_type.load(os.path.join('New_pins', filename))
+    _, ax = phase_plot(result.get_event_sizes(time_start), filename, exclude_zero, False)
+    if s_max is not None:
+        add_power_law(result, ax, s_max)
+        plt.legend()
+    if show:
+        plt.show(block=False)
     if save_dir is not None:
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
-        plt.savefig(os.path.join(save_dir,  f'{filename}.jpg'))
+        plt.savefig(os.path.join(save_dir,  f'{filename}_powerlaw.jpg'))
     
 def gen_path_plots(save_dir: str, filename: str, inc_pins: bool = True, time_start: int = 0):
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
     result = AvalancheResult.load(os.path.join('New_pins', filename))
-    paths = result.get_event_paths(x_min=1, time_start=time_start)
-    sizes = result.get_event_sizes(x_min=1, time_start=time_start)
+    paths = result.get_event_paths(time_start)
+    sizes = result.get_event_sizes(time_start)
     for i, path_lst in enumerate(paths):
         fig = plt.figure(figsize=(10, 10*result.y_size/result.x_size))
         ax: Axes = fig.add_subplot(1, 1, 1)
@@ -96,12 +105,52 @@ def gen_density_plot(save_dir: str, filename: str):
         
         plt.savefig(os.path.join(save_dir,  f'vortex_add{i}.jpg'))
         plt.close(fig)
+        
+def alpha_solve(alpha: float, s_max: int, suff_stat: float = 0):
+    s_vals = np.arange(1, s_max+1)
+    powered_vals = s_vals**(-alpha)
+    h = np.sum(powered_vals)
+    h_prime = -alpha*np.sum(powered_vals/s_vals)
+    
+    return h_prime/h + suff_stat
+
+def zeta_ish(alpha: float, s_max: int) -> float:
+    s_vals = np.arange(1, s_max+1)
+    powered_vals = s_vals**(-alpha)
+    h = np.sum(powered_vals)
+    
+    return h
+        
+def power_law_fit(event_sizes: List[int], s_max: int, init_guess: float = 2.) -> Tuple[float, float]:
+    sufficient_stat = 0.
+    total_events = 0
+    for size in event_sizes:
+        if size == 0:
+            continue
+        sufficient_stat += 1/size
+        total_events += 1
+    sufficient_stat /= total_events
+    
+    alpha = fsolve(alpha_solve, init_guess, (s_max, sufficient_stat))[0]
+    norm_factor = total_events / zeta_ish(alpha, s_max)
+    return alpha, norm_factor
+
+def add_power_law(result: Union[AvalancheResult, BasicAvalancheResult], ax: Axes,
+                  s_max: int):
+    alpha, norm_factor = power_law_fit(result.get_event_sizes(10), s_max)
+    print(f'{-alpha = }')
+    x_min, x_max = ax.get_xlim()
+    x_vals = np.linspace(x_min, x_max)
+    power_vals = x_vals**(-alpha) * norm_factor
+    
+    ax.plot(x_vals, power_vals, 'r', label=f'$s^{{-{alpha:.3f}}}$')
     
 if __name__ == '__main__':
-    plots = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 4.5, 5.0, 5.5, 6.0]
+    # plots = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 4.5, 5.0, 5.5, 6.0]
+    plots = [4.0, 4.5, 5.0, 5.5, 6.0]
     for d in plots:
         print(d)
-        gen_phase_plot(f'new_pins_continued_{d:.1f}', True, os.path.join('results', 'Figures', 'Phase_plots'), 10, False)
+        gen_phase_plot(f'new_pins_continued_{d:.1f}', True, os.path.join('results', 'Figures', 'Phase_plots'), 10, False, 50)
     # gen_phase_plot('density_4.5_spread', True, os.path.join('results', 'Figures', 'Phase_plots'), 100)
     plt.show(block=False)
     input('Press enter to exit')

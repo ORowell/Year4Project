@@ -160,7 +160,7 @@ class VortexAvalancheBase(Simulation, ABC):
         
     def run_vortex_sim(self, total_added: int, dt: float, force_cutoff: float, movement_cutoff: float,
                        cutoff_time: int = 1, include_pbar: bool = True, print_after: Optional[int] = None,
-                       max_time_steps: Optional[int] = None):
+                       max_time_steps: Optional[int] = None, save_comp: int = 1):
         # if dt*self.pinning_strength > movement_cutoff:
         #     warn(f'Pinning force is greater than allowed movement for given dt ({dt*self.pinning_strength} > {movement_cutoff}). \
         #         Pinned vortices may move too much to be deemed stationary.')
@@ -187,7 +187,8 @@ class VortexAvalancheBase(Simulation, ABC):
                 this_vortex_count += 1
                 total_time_steps += 1
                 self._step(dt, force_cutoff)
-                new_result_ary = np.append(new_result_ary, self.vortices[np.newaxis, ...], axis=0)
+                if total_time_steps % save_comp == 0:
+                    new_result_ary = np.append(new_result_ary, self.vortices[np.newaxis, ...], axis=0)
                 
                 # Check for no movement
                 if new_result_ary.shape[0] > cutoff_time:
@@ -229,7 +230,7 @@ class VortexAvalancheBase(Simulation, ABC):
         else:
             print(f'Simulation completed in {total_time_steps} time steps', flush=True)
             
-        return AvalancheResult(result_vals, removed_vortices, self.pinning_sites, dt,
+        return AvalancheResult(result_vals, removed_vortices, self.pinning_sites, dt*save_comp,
                                self.x_size, self.y_size, self.y_images, self.random_gen,
                                force_cutoff, movement_cutoff, cutoff_time,
                                self.pinning_size, self.pinning_strength)

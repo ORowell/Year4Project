@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --ntasks 2
-#SBATCH --mem 16G
+#SBATCH --mem 40G
 #SBATCH --time 10-0:0:0
 #SBATCH --account watkinjs-supercon
 #SBATCH --qos bbdefault
