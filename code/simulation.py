@@ -37,8 +37,13 @@ class PickleClass:
                 print(f'{directory} not found', flush=True)
             return None
         with open(os.path.join(directory, filename), 'rb') as f:
+            if not quiet:
+                print(f'Loading result found at {os.path.join(directory, filename)}',
+                      flush=True)
             result = pickle.load(f)
             if isinstance(result, cls):
+                if not quiet:
+                    print('Result loaded', flush=True)
                 return result
             else:
                 return None

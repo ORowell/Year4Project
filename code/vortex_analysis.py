@@ -12,7 +12,7 @@ from short_scripts import animate_file, animate_folder
 
 
 def phase_plot(events_lst: List[int], title=None, exclude_zero: bool = False,
-               show: bool = True):
+               show: bool = True, log: bool = False):
     largest_event = max(events_lst)
     event_freq = [0]*(largest_event+1)
     for event_size in events_lst:
@@ -22,9 +22,15 @@ def phase_plot(events_lst: List[int], title=None, exclude_zero: bool = False,
     
     fig = plt.figure()
     ax: Axes = fig.add_subplot(1, 1, 1)
-    ax.bar(range(largest_event+1), event_freq)
-    ax.set_xlim(0, 60)
-    ax.set_ylim(0)
+    if log:
+        ax.plot(range(largest_event+1), event_freq, 'x')
+        ax.set_xscale('log')
+        ax.set_yscale('log')
+        ax.set_xlim(1, 60)
+    else:
+        ax.bar(range(largest_event+1), event_freq)
+        ax.set_xlim(0, 60)
+    ax.set_ylim(0.1)
     
     if title is not None:
         plt.title(title)
@@ -35,19 +41,23 @@ def phase_plot(events_lst: List[int], title=None, exclude_zero: bool = False,
     return fig, ax
 
 def gen_phase_plot(filename: str, exclude_zero: bool = False, save_dir: Optional[str] = None,
-                   time_start: int = 0, show: bool = True, s_max: Optional[int] = None,
+                   time_start: int = 0, show: bool = True, s_max: Optional[int] = None, log: bool = False,
                    result_type: Union[Type[AvalancheResult], Type[BasicAvalancheResult]] = AvalancheResult):
     result = result_type.load(os.path.join('New_pins', filename))
-    _, ax = phase_plot(result.get_event_sizes(time_start), filename, exclude_zero, False)
+    sizes = result.get_event_sizes(time_start)
+    del result # Delete for memory management
+    # sizes = rand_power_law_vals(0.7, s_max, 300)
+    _, ax = phase_plot(sizes, filename, exclude_zero, False, log)
     if s_max is not None:
-        add_power_law(result, ax, s_max)
+        add_power_law(sizes, ax, s_max)
         plt.legend()
     if show:
         plt.show(block=False)
     if save_dir is not None:
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
-        plt.savefig(os.path.join(save_dir,  f'{filename}_powerlaw.jpg'))
+        end = 'log' if log else ''
+        plt.savefig(os.path.join(save_dir, f'{filename}_powerlaw{end}.jpg'))
     
 def gen_path_plots(save_dir: str, filename: str, inc_pins: bool = True, time_start: int = 0):
     if not os.path.exists(save_dir):
@@ -113,7 +123,7 @@ def alpha_solve(alpha: float, s_max: int, suff_stat: float = 0):
     s_vals = np.arange(1, s_max+1)
     powered_vals = s_vals**(-alpha)
     h = np.sum(powered_vals)
-    h_prime = -alpha*np.sum(powered_vals/s_vals)
+    h_prime = -np.sum(powered_vals*np.log(s_vals))
     
     return h_prime/h + suff_stat
 
@@ -123,14 +133,14 @@ def zeta_ish(alpha: float, s_max: int) -> float:
     h = np.sum(powered_vals)
     
     return h
-        
-def power_law_fit(event_sizes: List[int], s_max: int, init_guess: float = 2.) -> Tuple[float, float]:
+    
+def power_law_fit(event_sizes: List[int], s_max: int, init_guess: float = 0.5) -> Tuple[float, float]:
     sufficient_stat = 0.
     total_events = 0
     for size in event_sizes:
         if size == 0:
             continue
-        sufficient_stat += 1/size
+        sufficient_stat += np.log(size)
         total_events += 1
     sufficient_stat /= total_events
     
@@ -138,22 +148,65 @@ def power_law_fit(event_sizes: List[int], s_max: int, init_guess: float = 2.) ->
     norm_factor = total_events / zeta_ish(alpha, s_max)
     return alpha, norm_factor
 
-def add_power_law(result: Union[AvalancheResult, BasicAvalancheResult], ax: Axes,
-                  s_max: int):
-    alpha, norm_factor = power_law_fit(result.get_event_sizes(10), s_max)
+def add_power_law(event_sizes: List[int], ax: Axes, s_max: int):
+    alpha, norm_factor = power_law_fit(event_sizes, s_max)
     print(f'{-alpha = }')
     x_min, x_max = ax.get_xlim()
     x_vals = np.linspace(x_min, x_max)
     power_vals = x_vals**(-alpha) * norm_factor
     
-    ax.plot(x_vals, power_vals, 'r', label=f'$s^{{-{alpha:.3f}}}$')
+    p_value = fitness_test(event_sizes, s_max, alpha, norm_factor, 15)
+    
+    ax.plot(x_vals, power_vals, 'r', label=f'$s^{{-{alpha:.3f}}}$\nFit p-value of {p_value:.3e}')
+    
+def fitness_test(event_sizes: List[int], s_max: int, alpha: float, norm_factor: float,
+                 min_bin_size: float):
+    size_range = range(1, s_max+1)
+    expected_vals = [size**(-alpha) * norm_factor for size in size_range]
+    bin_edges: List[int] = [1]
+    expected_hist = []
+    current_size = 0.
+    for i, val in enumerate(expected_vals):
+        current_size += val
+        if current_size >= min_bin_size:
+            bin_edges.append(i+2)
+            expected_hist.append(current_size)
+            current_size = 0
+    bin_edges[-1] = s_max
+    expected_hist[-1] += current_size
+    
+    expected_hist = np.array(expected_hist) #type: ignore
+    observed_hist, _ = np.histogram(event_sizes, bins=bin_edges)
+    print(f'Using bins {bin_edges}')
+    print(f'which give expected values of {expected_hist}, sum={sum(expected_hist)}')
+    print(f'compared to observed values {observed_hist}, sum={sum(observed_hist)}')
+    
+    p_value = chisquare(observed_hist, expected_hist, 1).pvalue
+    print(p_value)
+    
+    return p_value
+
+def rand_power_law_vals(alpha, s_max, num_vals: int,
+                        generator: Optional[np.random.Generator] = None):
+    poss_s = np.arange(1, s_max+1)
+    norm_factor = zeta_ish(alpha, s_max)
+    
+    pdf = poss_s ** (-alpha) / norm_factor
+    cdf = np.cumsum(pdf)
+    
+    if generator is None:
+        generator = np.random.default_rng()
+    vals: np.ndarray = generator.uniform(size=num_vals)
+    out_vals = np.searchsorted(cdf, vals)+1
+    
+    return out_vals
     
 if __name__ == '__main__':
     # plots = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 4.5, 5.0, 5.5, 6.0]
     plots = [4.0, 4.5, 5.0, 5.5, 6.0]
     for d in plots:
         print(d)
-        gen_phase_plot(f'new_pins_continued_{d:.1f}', True, os.path.join('results', 'Figures', 'Phase_plots'), 10, False, 50)
+        gen_phase_plot(f'new_pins_continued_{d:.1f}', True, os.path.join('results', 'Figures', 'Phase_plots'), 10, False, 50, True)
     # gen_phase_plot('density_4.5_spread', True, os.path.join('results', 'Figures', 'Phase_plots'), 100)
     plt.show(block=False)
     input('Press enter to exit')

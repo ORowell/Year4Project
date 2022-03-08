@@ -16,8 +16,8 @@ SEED                = 1001          # -s, --seed
 DT                  = 1e-4          #     --dt
 REL_STOP_SPEED      = 0.1           #     --rel_stop_speed
 INIT_REL_STOP_SPEED = 0.5           #     --init_rel_stop_speed
-INIT_NUM_VORTICES   = 200           # -i, --init_vortices
-NUM_VORTICES        = 3000          # -v, --vortices
+INIT_NUM_VORTICES   = 250           # -i, --init_vortices
+NUM_VORTICES        = 1000          # -v, --vortices
 NAME                = ''            # -n, --name
 COMPRESS            = None          #     --compress
 PRINT_AFTER         = None          #     --print_after
@@ -25,7 +25,7 @@ MAX_TIME            = None          #     --max_time
 
 if __name__ == '__main__':
     argv = sys.argv[1:]
-    print(argv, flush=True)
+    print(f'Running {sys.argv[0]} with arguments', argv, flush=True)
     opts, args = getopt.getopt(argv, 'd:s:i:v:n:',
                             ['profile', 'length=', 'width=', 'repeats=',
                              'density=', 'pin_radius=', 'pin_force=',
@@ -100,10 +100,12 @@ def main(length: int = LENGTH, width: int = WIDTH, repeats: int = REPEATS, densi
     init_sim = StepAvalancheSim.create_system(length, width, repeats, density, pin_size, pin_strength, seed)
     print('Running initial simulation', flush=True)
     init_result = init_sim.run_vortex_sim(init_num_vortices, dt, 9, init_movement_cutoff, 100,
-                                          print_after=print_after, max_time_steps=max_time, save_comp=10)
+                                          print_after=print_after, max_time_steps=max_time)
     
     print('Creating main simulation', flush=True)
     main_sim = StepAvalancheSim.continue_from(init_result)
+    init_result.save(name+'_init')
+    del init_result
     print('Running main simulation', flush=True)
     result = main_sim.run_vortex_sim(num_vortices, dt, 9, movement_cutoff, 100,
                                      print_after=print_after, max_time_steps=max_time, save_comp=10)
