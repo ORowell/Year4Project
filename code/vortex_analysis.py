@@ -1,12 +1,15 @@
+import os
+from typing import List, Optional, Tuple, Type, Union
+
+import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib.axes import Axes
+from scipy.optimize import fsolve
+from scipy.stats import chisquare
+
 from avalanche_analysis_classes import AvalancheResult, BasicAvalancheResult
 from short_scripts import animate_file, animate_folder
 
-import os
-from typing import List, Optional, Tuple, Type, Union
-import matplotlib.pyplot as plt
-from matplotlib.axes import Axes
-import numpy as np
-from scipy.optimize import fsolve
 
 def phase_plot(events_lst: List[int], title=None, exclude_zero: bool = False,
                show: bool = True):

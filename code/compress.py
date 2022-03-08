@@ -1,7 +1,7 @@
-from avalanche_analysis_classes import AvalancheResult
-
-import sys
 import getopt
+import sys
+
+from avalanche_analysis_classes import AvalancheResult
 
 REPLACE_OLD = False     # -r, --replace_old
 NAME        = None      # -n, --name

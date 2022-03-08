@@ -1,14 +1,14 @@
-from typing import List, Optional
-
-from simulation import Simulation, BAR_FORMAT, HALF_ROOT_3
-from avalanche_analysis_classes import AvalancheResult, AvalancheAnimator
-
-import sys
 import getopt
+import sys
+from abc import ABC, abstractmethod
+from typing import List, Optional
 from warnings import warn
+
 import numpy as np
 import tqdm
-from abc import ABC, abstractmethod
+
+from avalanche_analysis_classes import AvalancheAnimator, AvalancheResult
+from simulation import BAR_FORMAT, HALF_ROOT_3, Simulation
 
 NP_FORMATTER = {'float': '{: .5e}'.format}
 

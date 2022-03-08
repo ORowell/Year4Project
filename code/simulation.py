@@ -1,12 +1,13 @@
-from typing import Optional, Type, TypeVar
 import os
+import pickle
+from dataclasses import dataclass, field
+from typing import Optional, Type, TypeVar
+
+import matplotlib.animation as anim
+import matplotlib.pyplot as plt
 import numpy as np
 import scipy.special as scipy_s
 import tqdm
-import pickle
-import matplotlib.pyplot as plt
-import matplotlib.animation as anim
-from dataclasses import dataclass, field
 
 BAR_FORMAT = '{desc}: {percentage:5.1f}%|{bar}{r_bar}'
 HALF_ROOT_3 = np.sqrt(3)/2

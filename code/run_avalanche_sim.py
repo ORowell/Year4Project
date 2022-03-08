@@ -1,9 +1,9 @@
-from avalanche_sim import StepAvalancheSim
-from avalanche_analysis_classes import AvalancheResult, BasicAvalancheResult
-
-from typing import Optional
-import sys
 import getopt
+import sys
+from typing import Optional
+
+from avalanche_analysis_classes import AvalancheResult, BasicAvalancheResult
+from avalanche_sim import StepAvalancheSim
 
 PROFILING           = False         #     --profile
 LENGTH              = 10            #     --length

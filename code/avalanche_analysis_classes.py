@@ -1,13 +1,15 @@
-from typing import List, Tuple, Union
-from simulation import PickleClass, BAR_FORMAT
-
 import os
-from operator import itemgetter
-import numpy as np
 from dataclasses import dataclass, field
-import matplotlib.pyplot as plt
+from operator import itemgetter
+from typing import List, Tuple, Union
+
 import matplotlib.animation as anim
+import matplotlib.pyplot as plt
+import numpy as np
 import tqdm
+
+from simulation import BAR_FORMAT, PickleClass
+
 
 @dataclass
 class AvalancheResult(PickleClass):

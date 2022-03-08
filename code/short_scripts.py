@@ -1,7 +1,8 @@
+import os
 from typing import Optional, Union
+
 from avalanche_analysis_classes import AvalancheAnimator, AvalancheResult
 
-import os
 
 def animate_file(filename: str, directory: str, output_ext: str = '', freq: Optional[int] = None,
                  event_range: Union[int, slice] = slice(None)):

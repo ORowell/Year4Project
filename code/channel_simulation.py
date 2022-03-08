@@ -1,13 +1,15 @@
-from typing import Iterable, List, Sequence, Type
-from simulation import Simulation, HALF_ROOT_3, SimResult, SimAnimator, SAVE_LOCATION
-
 import os
 import sys
-import numpy as np
-from dataclasses import dataclass
-import matplotlib.pyplot as plt
-import tqdm
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from typing import List, Sequence, Type
+
+import matplotlib.pyplot as plt
+import numpy as np
+import tqdm
+
+from simulation import (HALF_ROOT_3, SAVE_LOCATION, SimAnimator, SimResult,
+                        Simulation)
 
 # Default values
 PINNED_DEPTH = 4
