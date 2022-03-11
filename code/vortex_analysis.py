@@ -27,10 +27,11 @@ def phase_plot(events_lst: List[int], title=None, exclude_zero: bool = False,
         ax.set_xscale('log')
         ax.set_yscale('log')
         ax.set_xlim(1, 60)
+        ax.set_ylim(0.1)
     else:
         ax.bar(range(largest_event+1), event_freq)
         ax.set_xlim(0, 60)
-    ax.set_ylim(0.1)
+        ax.set_ylim(0)
     
     if title is not None:
         plt.title(title)
@@ -211,7 +212,7 @@ if __name__ == '__main__':
     plt.show(block=False)
     input('Press enter to exit')
     
-    # animate_file('new_pins_continued_5.0', os.path.join('results', 'Simulation_results', 'AvalancheResult', 'New_pins'))#, event_range=193, output_ext='_event93')
+    # animate_file('new_pins_continued_5.5', os.path.join('results', 'Simulation_results', 'AvalancheResult', 'New_pins'))#, event_range=193, output_ext='_event93')
     # animate_folder(os.path.join('results', 'Simulation_results', 'AvalancheResult', 'Density_sweep'))
     # gen_path_plots(os.path.join('results', 'Figures', 'Event_paths', 'NewPins5.0_cont_events'), 'new_pins_continued_5.0', time_start=10)
     # gen_density_plot(os.path.join('results', 'Figures', 'Density_gradients', 'Density6.0_gradient'), 'density_sweep_6.0')

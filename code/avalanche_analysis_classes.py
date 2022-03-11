@@ -174,7 +174,7 @@ class Event:
         
         # Separate removed vortices from the other data
         for removed_i in removed_vortex_is:
-            removed_vortices = np.append(removed_vortices, start_pos[removed_i, :], axis=0)
+            removed_vortices = np.append(removed_vortices, start_pos[np.newaxis, removed_i, :], axis=0)
             start_pos = np.delete(start_pos, removed_i, axis=0)
         
         event_data = np.stack((start_pos, end_pos), axis=0)

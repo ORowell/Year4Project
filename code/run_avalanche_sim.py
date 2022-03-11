@@ -19,6 +19,7 @@ INIT_REL_STOP_SPEED = 0.5           #     --init_rel_stop_speed
 INIT_NUM_VORTICES   = 250           # -i, --init_vortices
 NUM_VORTICES        = 1000          # -v, --vortices
 NAME                = ''            # -n, --name
+START_FROM          = None          #     --start_from
 COMPRESS            = None          #     --compress
 PRINT_AFTER         = None          #     --print_after
 MAX_TIME            = None          #     --max_time
@@ -31,7 +32,7 @@ if __name__ == '__main__':
                              'density=', 'pin_radius=', 'pin_force=',
                              'seed=', 'dt=', 'rel_stop_speed=', 'init_rel_stop_speed=',
                              'init_vortices=', 'vortices=', 'name=', 'compress=',
-                             'print_after=', 'max_time='])
+                             'print_after=', 'max_time=', 'start_from='])
     for opt, arg in opts:
         if opt == '--profile':
             PROFILING = True
@@ -84,6 +85,9 @@ if __name__ == '__main__':
         elif opt == '--max_time':
             MAX_TIME = int(arg)
             print(f'Setting {MAX_TIME = }')
+        elif opt == '--start_from':
+            START_FROM = arg
+            print(f'Setting {START_FROM = }')
     sys.stdout.flush()
 
 MOVEMENT_CUTOFF = REL_STOP_SPEED * PIN_STRENGTH * DT
@@ -95,17 +99,24 @@ def main(length: int = LENGTH, width: int = WIDTH, repeats: int = REPEATS, densi
          pin_size: float = PIN_SIZE, pin_strength: float = PIN_STRENGTH, seed: int = SEED, dt: float = DT,
          movement_cutoff: float = MOVEMENT_CUTOFF, num_vortices: int = NUM_VORTICES, max_time: Optional[int] = MAX_TIME,
          init_movement_cutoff: float = INIT_MOVEMENT_CUTOFF, init_num_vortices: int = INIT_NUM_VORTICES,
-         name: str = NAME, compress: Optional[int] = COMPRESS, print_after: Optional[int] = PRINT_AFTER):
-    print('Creating initial simulation', flush=True)
-    init_sim = StepAvalancheSim.create_system(length, width, repeats, density, pin_size, pin_strength, seed)
-    print('Running initial simulation', flush=True)
-    init_result = init_sim.run_vortex_sim(init_num_vortices, dt, 9, init_movement_cutoff, 100,
-                                          print_after=print_after, max_time_steps=max_time)
-    
-    print('Creating main simulation', flush=True)
-    main_sim = StepAvalancheSim.continue_from(init_result)
-    init_result.save(name+'_init')
-    del init_result
+         name: str = NAME, compress: Optional[int] = COMPRESS, print_after: Optional[int] = PRINT_AFTER,
+         start_from: Optional[str] = START_FROM):
+    if start_from is None:
+        print('Creating initial simulation', flush=True)
+        init_sim = StepAvalancheSim.create_system(length, width, repeats, density, pin_size, pin_strength, seed)
+        print('Running initial simulation', flush=True)
+        init_result = init_sim.run_vortex_sim(init_num_vortices, dt, 9, init_movement_cutoff, 100,
+                                            print_after=print_after, max_time_steps=max_time)
+        
+        print('Creating main simulation', flush=True)
+        main_sim = StepAvalancheSim.continue_from(init_result)
+        init_result.save(name+'_init')
+        del init_result
+    else:
+        # Continue from a past state
+        print(f'Loading past result at {start_from}', flush=True)
+        past_result = AvalancheResult.load(start_from)
+        main_sim = StepAvalancheSim.continue_from(past_result)
     print('Running main simulation', flush=True)
     result = main_sim.run_vortex_sim(num_vortices, dt, 9, movement_cutoff, 100,
                                      print_after=print_after, max_time_steps=max_time, save_comp=10)

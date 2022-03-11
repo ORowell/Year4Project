@@ -265,6 +265,7 @@ class ShiftedPinLatticeMixin(VortexAvalancheBase):
 class StepAvalancheSim(ShiftedPinLatticeMixin, VortexAvalancheBase):
     def _pinning_force(self, vortex_pos):
         displacement = self.pinning_sites - vortex_pos
+        displacement = np.mod(displacement + self.size_ary/2, self.size_ary) - self.size_ary/2
         # distances = np.linalg.norm(displacement, axis=1, keepdims=True)
         # force_strength = self.pinning_strength*(distances<self.pinning_size)
         
