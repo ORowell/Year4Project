@@ -1,0 +1,11 @@
+Title
+Intro to type II
+Vortex interaction and high-k limit
+Pinning
+Avalanche system inc. comparison to experimental method
+Overview of simulation method
+Observed channel behaviour and change of pin layout
+Observed avalanches at high density
+Criticality and comparison to sandpile
+Power law fitting results
+Conclusion(s)
