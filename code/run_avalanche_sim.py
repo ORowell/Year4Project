@@ -2,6 +2,7 @@ import getopt
 import sys
 from typing import Optional
 
+import start_time
 from avalanche_analysis_classes import AvalancheResult, BasicAvalancheResult
 from avalanche_sim import StepAvalancheSim
 
@@ -19,28 +20,31 @@ INIT_REL_STOP_SPEED = 0.5           #     --init_rel_stop_speed
 INIT_NUM_VORTICES   = 250           # -i, --init_vortices
 NUM_VORTICES        = 1000          # -v, --vortices
 NAME                = ''            # -n, --name
+WALL_TIME           = 0             # -t, --wall_time
 START_FROM          = None          #     --start_from
 COMPRESS            = None          #     --compress
 PRINT_AFTER         = None          #     --print_after
 MAX_TIME            = None          #     --max_time
 
+BUFFER_TIME = 1*60*60 # Time in seconds to allow for saving + timing discrepancies
+
 if __name__ == '__main__':
     argv = sys.argv[1:]
     print(f'Running {sys.argv[0]} with arguments', argv, flush=True)
-    opts, args = getopt.getopt(argv, 'd:s:i:v:n:',
+    opts, args = getopt.getopt(argv, 'd:s:i:v:n:t:',
                             ['profile', 'length=', 'width=', 'repeats=',
                              'density=', 'pin_radius=', 'pin_force=',
                              'seed=', 'dt=', 'rel_stop_speed=', 'init_rel_stop_speed=',
                              'init_vortices=', 'vortices=', 'name=', 'compress=',
-                             'print_after=', 'max_time=', 'start_from='])
+                             'print_after=', 'max_time=', 'start_from=', 'wall_time='])
     for opt, arg in opts:
         if opt == '--profile':
             PROFILING = True
             print(f'Setting {PROFILING = }')
-        elif opt in ('-l', '--length'):
+        elif opt == '--length':
             LENGTH = int(arg)
             print(f'Setting {LENGTH = }')
-        elif opt in ('-w', '--width'):
+        elif opt == '--width':
             WIDTH = int(arg)
             print(f'Setting {WIDTH = }')
         elif opt == '--repeats':
@@ -49,16 +53,16 @@ if __name__ == '__main__':
         elif opt in ('-d', '--density'):
             PIN_DENSITY = float(arg)
             print(f'Setting {PIN_DENSITY = }')
-        elif opt in ('-r', '--pin_radius'):
+        elif opt == '--pin_radius':
             PIN_SIZE = float(arg)
             print(f'Setting {PIN_SIZE = }')
-        elif opt in ('-f', '--pin_force'):
+        elif opt == '--pin_force':
             PIN_STRENGTH = float(arg)
             print(f'Setting {PIN_STRENGTH = }')
         elif opt in ('-s', '--seed'):
             SEED = int(arg)
             print(f'Setting {SEED = }')
-        elif opt in ('-t', '--dt'):
+        elif opt == '--dt':
             DT = float(arg)
             print(f'Setting {DT = }')
         elif opt == '--init_rel_stop_speed':
@@ -73,13 +77,16 @@ if __name__ == '__main__':
         elif opt in ('-v', '--vortices'):
             NUM_VORTICES = int(arg)
             print(f'Setting {NUM_VORTICES = }')
+        elif opt in ('-t', '--wall_time'):
+            WALL_TIME = int(arg)
+            print(f'Setting {WALL_TIME = }')
         elif opt in ('-n', '--name'):
             NAME = arg
             print(f'Setting {NAME = }')
-        elif opt in ('-c', '--compress'):
+        elif opt == '--compress':
             COMPRESS = int(arg)
             print(f'Setting {COMPRESS = }')
-        elif opt in ('-p', '--print_after'):
+        elif opt == '--print_after':
             PRINT_AFTER = int(arg)
             print(f'Setting {PRINT_AFTER = }')
         elif opt == '--max_time':
@@ -92,6 +99,11 @@ if __name__ == '__main__':
 
 MOVEMENT_CUTOFF = REL_STOP_SPEED * PIN_STRENGTH * DT
 INIT_MOVEMENT_CUTOFF = INIT_REL_STOP_SPEED * PIN_STRENGTH * DT
+if WALL_TIME != 0:
+    WALL_TIME -= BUFFER_TIME
+    if WALL_TIME < 0:
+        print('Wall time is greater than buffer time. Removing wall time', flush=True)
+        WALL_TIME = 0
 if NAME == '':
     NAME = f'test{SEED}'
 
@@ -100,13 +112,14 @@ def main(length: int = LENGTH, width: int = WIDTH, repeats: int = REPEATS, densi
          movement_cutoff: float = MOVEMENT_CUTOFF, num_vortices: int = NUM_VORTICES, max_time: Optional[int] = MAX_TIME,
          init_movement_cutoff: float = INIT_MOVEMENT_CUTOFF, init_num_vortices: int = INIT_NUM_VORTICES,
          name: str = NAME, compress: Optional[int] = COMPRESS, print_after: Optional[int] = PRINT_AFTER,
-         start_from: Optional[str] = START_FROM):
+         start_from: Optional[str] = START_FROM, wall_time: float = WALL_TIME):
     if start_from is None:
         print('Creating initial simulation', flush=True)
         init_sim = StepAvalancheSim.create_system(length, width, repeats, density, pin_size, pin_strength, seed)
         print('Running initial simulation', flush=True)
         init_result = init_sim.run_vortex_sim(init_num_vortices, dt, 9, init_movement_cutoff, 100,
-                                            print_after=print_after, max_time_steps=max_time)
+                                            print_after=print_after, max_time_steps=max_time,
+                                            wall_time=wall_time)
         
         print('Creating main simulation', flush=True)
         main_sim = StepAvalancheSim.continue_from(init_result)
@@ -119,7 +132,8 @@ def main(length: int = LENGTH, width: int = WIDTH, repeats: int = REPEATS, densi
         main_sim = StepAvalancheSim.continue_from(past_result)
     print('Running main simulation', flush=True)
     result = main_sim.run_vortex_sim(num_vortices, dt, 9, movement_cutoff, 100,
-                                     print_after=print_after, max_time_steps=max_time, save_comp=10)
+                                     print_after=print_after, max_time_steps=max_time, save_comp=10,
+                                     wall_time=wall_time)
     
     # Compress the results before saving
     if compress is None:

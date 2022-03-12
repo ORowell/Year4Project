@@ -3,10 +3,12 @@ import sys
 from abc import ABC, abstractmethod
 from typing import List, Optional
 from warnings import warn
+from time import time
 
 import numpy as np
 import tqdm
 
+import start_time
 from avalanche_analysis_classes import AvalancheAnimator, AvalancheResult
 from simulation import BAR_FORMAT, HALF_ROOT_3, Simulation
 
@@ -160,7 +162,7 @@ class VortexAvalancheBase(Simulation, ABC):
         
     def run_vortex_sim(self, total_added: int, dt: float, force_cutoff: float, movement_cutoff: float,
                        cutoff_time: int = 1, include_pbar: bool = True, print_after: Optional[int] = None,
-                       max_time_steps: Optional[int] = None, save_comp: int = 1):
+                       max_time_steps: Optional[int] = None, save_comp: int = 1, wall_time: float = 0.):
         # if dt*self.pinning_strength > movement_cutoff:
         #     warn(f'Pinning force is greater than allowed movement for given dt ({dt*self.pinning_strength} > {movement_cutoff}). \
         #         Pinned vortices may move too much to be deemed stationary.')
@@ -183,7 +185,8 @@ class VortexAvalancheBase(Simulation, ABC):
             new_result_lst = []
             new_result_ary = self.vortices.copy()[np.newaxis, ...]
             this_vortex_count = 0
-            while max_time_steps is None or total_time_steps < max_time_steps:
+            while (max_time_steps is None or total_time_steps < max_time_steps) and \
+                  (wall_time == 0 or time() - start_time.START_TIME < wall_time):
                 this_vortex_count += 1
                 total_time_steps += 1
                 self._step(dt, force_cutoff)
@@ -226,6 +229,9 @@ class VortexAvalancheBase(Simulation, ABC):
             removed_vortices.append(new_removed_vortex_lst)
             if max_time_steps is not None and total_time_steps >= max_time_steps:
                 print('Hit time step count. Ending simulation', flush=True)
+                break
+            if wall_time != 0 and time() - start_time.START_TIME >= wall_time:
+                print('Hit wall time. Ending simulation', flush=True)
                 break
         else:
             print(f'Simulation completed in {total_time_steps} time steps', flush=True)
