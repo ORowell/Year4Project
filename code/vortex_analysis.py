@@ -12,7 +12,7 @@ from short_scripts import animate_file, animate_folder
 
 
 def phase_plot(events_lst: List[int], title=None, exclude_zero: bool = False,
-               show: bool = True, log: bool = False):
+               show: bool = True, log: bool = False, s_max: Optional[int] = None):
     largest_event = max(events_lst)
     event_freq = [0]*(largest_event+1)
     for event_size in events_lst:
@@ -23,13 +23,21 @@ def phase_plot(events_lst: List[int], title=None, exclude_zero: bool = False,
     fig = plt.figure()
     ax: Axes = fig.add_subplot(1, 1, 1)
     if log:
-        ax.plot(range(largest_event+1), event_freq, 'x')
+        if s_max is not None and s_max < largest_event:
+            ax.plot(range(s_max+1), event_freq[:s_max+1], 'x')
+            ax.plot(range(s_max+1, largest_event+1), event_freq[s_max+1:], 'x', color='grey')
+        else:
+            ax.plot(range(largest_event+1), event_freq, 'x')
         ax.set_xscale('log')
         ax.set_yscale('log')
         ax.set_xlim(1, 60)
         ax.set_ylim(0.1)
     else:
-        ax.bar(range(largest_event+1), event_freq)
+        if s_max is not None and s_max < largest_event:
+            ax.bar(range(s_max+1), event_freq[:s_max+1])
+            ax.bar(range(s_max+1, largest_event+1), event_freq[s_max+1:], color='grey')
+        else:
+            ax.bar(range(largest_event+1), event_freq)
         ax.set_xlim(0, 60)
         ax.set_ylim(0)
     
@@ -47,8 +55,14 @@ def gen_phase_plot(filename: str, exclude_zero: bool = False, save_dir: Optional
     result = result_type.load(os.path.join('New_pins', filename))
     sizes = result.get_event_sizes(time_start)
     del result # Delete for memory management
+    gen_phase_plot_from_sizes(sizes, filename, exclude_zero,
+                              save_dir, show, s_max, log)
+
+def gen_phase_plot_from_sizes(sizes: List[int], filename: str, exclude_zero: bool = False,
+                              save_dir: Optional[str] = None, show: bool = True,
+                              s_max: Optional[int] = None, log: bool = False):
     # sizes = rand_power_law_vals(0.7, s_max, 300)
-    _, ax = phase_plot(sizes, filename, exclude_zero, False, log)
+    _, ax = phase_plot(sizes, filename, exclude_zero, False, log, s_max)
     if s_max is not None:
         add_power_law(sizes, ax, s_max)
         plt.legend()
@@ -58,7 +72,7 @@ def gen_phase_plot(filename: str, exclude_zero: bool = False, save_dir: Optional
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
         end = 'log' if log else ''
-        plt.savefig(os.path.join(save_dir, f'{filename}_powerlaw{end}.jpg'))
+        plt.savefig(os.path.join(save_dir, f'powerlaw{end}_{filename}.jpg'))
     
 def gen_path_plots(save_dir: str, filename: str, inc_pins: bool = True, time_start: int = 0):
     if not os.path.exists(save_dir):
@@ -139,7 +153,7 @@ def power_law_fit(event_sizes: List[int], s_max: int, init_guess: float = 0.5) -
     sufficient_stat = 0.
     total_events = 0
     for size in event_sizes:
-        if size == 0:
+        if size == 0 or size > s_max:
             continue
         sufficient_stat += np.log(size)
         total_events += 1
@@ -152,13 +166,13 @@ def power_law_fit(event_sizes: List[int], s_max: int, init_guess: float = 0.5) -
 def add_power_law(event_sizes: List[int], ax: Axes, s_max: int):
     alpha, norm_factor = power_law_fit(event_sizes, s_max)
     print(f'{-alpha = }')
-    x_min, x_max = ax.get_xlim()
-    x_vals = np.linspace(x_min, x_max)
+    x_min, _ = ax.get_xlim()
+    x_vals = np.linspace(x_min, s_max)
     power_vals = x_vals**(-alpha) * norm_factor
     
     p_value = fitness_test(event_sizes, s_max, alpha, norm_factor, 15)
     
-    ax.plot(x_vals, power_vals, 'r', label=f'$s^{{-{alpha:.3f}}}$\nFit p-value of {p_value:.3e}')
+    ax.plot(x_vals, power_vals, 'r', label=f'$s^{{-{alpha:.3f}}}$, s_0 = ${s_max}$\nFit p-value of {p_value:.3g}')
     
 def fitness_test(event_sizes: List[int], s_max: int, alpha: float, norm_factor: float,
                  min_bin_size: float):
@@ -204,12 +218,24 @@ def rand_power_law_vals(alpha, s_max, num_vals: int,
     
 if __name__ == '__main__':
     # plots = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 4.5, 5.0, 5.5, 6.0]
-    plots = [4.0, 4.5, 5.0, 5.5, 6.0]
-    for d in plots:
-        print(d)
-        gen_phase_plot(f'new_pins_continued_{d:.1f}', True, os.path.join('results', 'Figures', 'Phase_plots'), 10, False, 50, True)
-    # gen_phase_plot('density_4.5_spread', True, os.path.join('results', 'Figures', 'Phase_plots'), 100)
-    plt.show(block=False)
+    # plots = [4.0, 4.5, 5.0, 5.5, 6.0]
+    # for d in plots:
+    #     print(d)
+    #     gen_phase_plot(f'new_pins_continued_{d:.1f}', True, os.path.join('results', 'Figures', 'Phase_plots'), 10, False, 50, True)
+    # # gen_phase_plot('density_4.5_spread', True, os.path.join('results', 'Figures', 'Phase_plots'), 100)
+    # plt.show(block=False)
+    
+    s_maxes = list(range(10, 21, 2)) + list(range(21, 30))+ list(range(30, 51, 5))
+    name = 'new_pins_continued_5.5'
+    result = AvalancheResult.load(os.path.join('New_pins', name))
+    sizes = result.get_event_sizes(10)
+    del result
+    for s_max in s_maxes:
+        print(f'{s_max = }')
+        gen_phase_plot_from_sizes(sizes, f'density55_smax_{s_max}', True, os.path.join('results', 'Figures', 'Phase_plots'), False, s_max, True)
+        gen_phase_plot_from_sizes(sizes, f'density55_smax_{s_max}', True, os.path.join('results', 'Figures', 'Phase_plots'), False, s_max, False)
+    # plt.show(block=False)
+    
     input('Press enter to exit')
     
     # animate_file('new_pins_continued_5.5', os.path.join('results', 'Simulation_results', 'AvalancheResult', 'New_pins'))#, event_range=193, output_ext='_event93')
