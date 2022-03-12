@@ -74,6 +74,31 @@ def gen_phase_plot_from_sizes(sizes: List[int], filename: str, exclude_zero: boo
         end = 'log' if log else ''
         plt.savefig(os.path.join(save_dir, f'powerlaw{end}_{filename}.jpg'))
     
+def add_pins_to_plot(ax: Axes, result: Union[AvalancheResult, BasicAvalancheResult]):
+    for pinned_vortex in result.pinning_sites:
+        ax.add_artist(plt.Circle(pinned_vortex, result.pinning_size, color='grey', alpha=0.3))
+        # Double draw vortices that go over the edge
+        vortex_y = pinned_vortex[1]
+        if vortex_y < result.pinning_size:
+            ax.add_artist(plt.Circle([pinned_vortex[0], vortex_y+result.y_size], result.pinning_size, color='grey', alpha=0.3))
+        elif vortex_y > result.y_size - result.pinning_size:
+            ax.add_artist(plt.Circle([pinned_vortex[0], vortex_y-result.y_size], result.pinning_size, color='grey', alpha=0.3))
+            
+def pin_plot(filename: str, load_folder: str = '', save_dir: Optional[str] = None, show: bool = True,
+             result_type: Union[Type[AvalancheResult], Type[BasicAvalancheResult]] = AvalancheResult):
+    result = result_type.load(os.path.join(load_folder, filename))
+    fig = plt.figure(figsize=(10, 10*result.y_size/result.x_size))
+    ax: Axes = fig.add_subplot(1, 1, 1)
+    ax.set_xlim([0, result.x_size])
+    ax.set_ylim([0, result.y_size])
+    add_pins_to_plot(ax, result)
+    if show:
+        plt.show(block=False)
+    if save_dir is not None:
+        if not os.path.exists(save_dir):
+            os.makedirs(save_dir)
+        plt.savefig(os.path.join(save_dir, f'{filename}_pins.jpg'))
+    
 def gen_path_plots(save_dir: str, filename: str, inc_pins: bool = True, time_start: int = 0):
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
@@ -87,14 +112,7 @@ def gen_path_plots(save_dir: str, filename: str, inc_pins: bool = True, time_sta
         ax.set_ylim([0, result.y_size])
         
         if inc_pins:
-            for pinned_vortex in result.pinning_sites:
-                ax.add_artist(plt.Circle(pinned_vortex, result.pinning_size, color='grey', alpha=0.3))
-                # Double draw vortices that go over the edge
-                vortex_y = pinned_vortex[1]
-                if vortex_y < result.pinning_size:
-                    ax.add_artist(plt.Circle([pinned_vortex[0], vortex_y+result.y_size], result.pinning_size, color='grey', alpha=0.3))
-                elif vortex_y > result.y_size - result.pinning_size:
-                    ax.add_artist(plt.Circle([pinned_vortex[0], vortex_y-result.y_size], result.pinning_size, color='grey', alpha=0.3))
+            add_pins_to_plot(ax, result)
         
         for path in path_lst:
             path_y = path[:, 1]
@@ -225,16 +243,19 @@ if __name__ == '__main__':
     # # gen_phase_plot('density_4.5_spread', True, os.path.join('results', 'Figures', 'Phase_plots'), 100)
     # plt.show(block=False)
     
-    s_maxes = list(range(10, 21, 2)) + list(range(21, 30))+ list(range(30, 51, 5))
-    name = 'new_pins_continued_5.5'
-    result = AvalancheResult.load(os.path.join('New_pins', name))
-    sizes = result.get_event_sizes(10)
-    del result
-    for s_max in s_maxes:
-        print(f'{s_max = }')
-        gen_phase_plot_from_sizes(sizes, f'density55_smax_{s_max}', True, os.path.join('results', 'Figures', 'Phase_plots'), False, s_max, True)
-        gen_phase_plot_from_sizes(sizes, f'density55_smax_{s_max}', True, os.path.join('results', 'Figures', 'Phase_plots'), False, s_max, False)
+    # s_maxes = list(range(10, 21, 2)) + list(range(21, 30))+ list(range(30, 51, 5))
+    # name = 'new_pins_continued_5.5'
+    # result = AvalancheResult.load(os.path.join('New_pins', name))
+    # sizes = result.get_event_sizes(10)
+    # del result
+    # for s_max in s_maxes:
+    #     print(f'{s_max = }')
+    #     gen_phase_plot_from_sizes(sizes, f'density55_smax_{s_max}', True, os.path.join('results', 'Figures', 'Phase_plots'), False, s_max, True)
+    #     gen_phase_plot_from_sizes(sizes, f'density55_smax_{s_max}', True, os.path.join('results', 'Figures', 'Phase_plots'), False, s_max, False)
     # plt.show(block=False)
+    
+    pin_plot('new_pins_continued_5.5', 'New_pins', os.path.join('results', 'Figures'))
+    pin_plot('continued_5.5', 'Density_sweep', os.path.join('results', 'Figures'))
     
     input('Press enter to exit')
     
