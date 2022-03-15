@@ -8,6 +8,29 @@ import numpy as np
 
 SAVE_LOCATION = os.path.join('results', 'Simulation_results', '{cls.__name__}')
 
+class TQDMBytesReader(object):
+    def __init__(self, fd, **kwargs):
+        self.fd = fd
+        from tqdm import tqdm
+        self.tqdm = tqdm(unit_scale=True, desc='Loading result', unit='B', **kwargs)
+
+    def read(self, size=-1):
+        bytes = self.fd.read(size)
+        self.tqdm.update(len(bytes))
+        return bytes
+
+    def readline(self):
+        bytes = self.fd.readline()
+        self.tqdm.update(len(bytes))
+        return bytes
+
+    def __enter__(self):
+        self.tqdm.__enter__()
+        return self
+
+    def __exit__(self, *args, **kwargs):
+        return self.tqdm.__exit__(*args, **kwargs)
+
 _T = TypeVar('_T', bound='PickleClass')
 class PickleClass:
     def save(self, filename, directory: Optional[str] = None):
@@ -31,10 +54,12 @@ class PickleClass:
                 print(f'{directory} not found', flush=True)
             return None
         with open(os.path.join(directory, filename), 'rb') as f:
+            total = os.path.getsize(os.path.join(directory, filename))
             if not quiet:
-                print(f'Loading result found at {os.path.join(directory, filename)}',
+                print(f'Result found at {os.path.join(directory, filename)}',
                       flush=True)
-            result = pickle.load(f)
+            with TQDMBytesReader(f, total=total) as pbar_f:
+                result = pickle.load(pbar_f)
             if isinstance(result, cls):
                 if not quiet:
                     print('Result loaded', flush=True)
