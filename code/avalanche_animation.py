@@ -34,8 +34,8 @@ class AvalancheAnimator:
         
     def _anim_init(self, max_vortices):
         fig = plt.figure(figsize=(10, 10*self._result.y_size/self._result.x_size))
-        fig.tight_layout()
         ax: Axes = fig.add_subplot(1, 1, 1)
+        fig.tight_layout()
         ax.set_xlim([0, self._result.x_size])
         ax.set_ylim([0, self._result.y_size])
         

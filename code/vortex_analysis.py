@@ -22,6 +22,7 @@ def phase_plot(events_lst: List[int], title=None, exclude_zero: bool = False,
     
     fig = plt.figure()
     ax: Axes = fig.add_subplot(1, 1, 1)
+    # fig.tight_layout()
     if log:
         if s_max is not None and s_max < largest_event:
             ax.plot(range(s_max+1), event_freq[:s_max+1], 'x')
@@ -40,6 +41,8 @@ def phase_plot(events_lst: List[int], title=None, exclude_zero: bool = False,
             ax.bar(range(largest_event+1), event_freq)
         ax.set_xlim(0, 60)
         ax.set_ylim(0)
+    ax.set_xlabel('Event size')
+    ax.set_ylabel(f'Frequency')
     
     if title is not None:
         plt.title(title)
@@ -51,18 +54,24 @@ def phase_plot(events_lst: List[int], title=None, exclude_zero: bool = False,
 
 def gen_phase_plot(filename: str, exclude_zero: bool = False, save_dir: Optional[str] = None,
                    time_start: int = 0, show: bool = True, s_max: Optional[int] = None, log: bool = False,
-                   result_type: Union[Type[AvalancheResult], Type[BasicAvalancheResult]] = AvalancheResult):
-    result = result_type.load(os.path.join('New_pins', filename))
+                   result_type: Union[Type[AvalancheResult], Type[BasicAvalancheResult]] = AvalancheResult,
+                   title: Optional[str] = None):
+    result = result_type.load(os.path.join('Density_sweep', filename))
     sizes = result.get_event_sizes(time_start)
     del result # Delete for memory management
-    gen_phase_plot_from_sizes(sizes, filename, exclude_zero,
-                              save_dir, show, s_max, log)
+    if title is None:
+        title = filename
+    gen_phase_plot_from_sizes(sizes, filename, title,
+                              save_dir, show, s_max, log, exclude_zero)
 
-def gen_phase_plot_from_sizes(sizes: List[int], filename: str, exclude_zero: bool = False,
+def gen_phase_plot_from_sizes(sizes: List[int], filename: str, title: Optional[str] = None,
                               save_dir: Optional[str] = None, show: bool = True,
-                              s_max: Optional[int] = None, log: bool = False):
+                              s_max: Optional[int] = None, log: bool = False,
+                              exclude_zero: bool = True):
     # sizes = rand_power_law_vals(0.7, s_max, 300)
-    _, ax = phase_plot(sizes, filename, exclude_zero, False, log, s_max)
+    if title is None:
+        title = filename
+    _, ax = phase_plot(sizes, title, exclude_zero, False, log, s_max)
     if s_max is not None:
         add_power_law(sizes, ax, s_max)
         plt.legend()
@@ -71,8 +80,14 @@ def gen_phase_plot_from_sizes(sizes: List[int], filename: str, exclude_zero: boo
     if save_dir is not None:
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
-        end = 'log' if log else ''
-        plt.savefig(os.path.join(save_dir, f'powerlaw{end}_{filename}.jpg'))
+        end = ''
+        if s_max is not None:
+            end += 'powerlaw'
+        if log:
+            end += 'log'
+        if end:
+            end += '_'
+        plt.savefig(os.path.join(save_dir, f'{end}{filename}.jpg'))
     
 def add_pins_to_plot(ax: Axes, result: Union[AvalancheResult, BasicAvalancheResult]):
     for pinned_vortex in result.pinning_sites:
@@ -190,7 +205,7 @@ def add_power_law(event_sizes: List[int], ax: Axes, s_max: int):
     
     p_value = fitness_test(event_sizes, s_max, alpha, norm_factor, 15)
     
-    ax.plot(x_vals, power_vals, 'r', label=f'$s^{{-{alpha:.3f}}}$, s_0 = ${s_max}$\nFit p-value of {p_value:.3g}')
+    ax.plot(x_vals, power_vals, 'r', label=f'$s^{{-{alpha:.3f}}}$, $s_0 = {s_max}$\nFit p-value of {p_value:.3g}')
     
 def fitness_test(event_sizes: List[int], s_max: int, alpha: float, norm_factor: float,
                  min_bin_size: float):
@@ -244,6 +259,13 @@ def animate_file(filename: str, directory: str, output_ext: str = '', freq: Opti
         print(f'{result.movement_cutoff = }, {result.movement_cutoff_time = }')
         print(f'{result.dt = }, {result.vortices_added = }')
         freq = int(input(f'{len(result.flatten(event_range))} to animate. Enter frequency: '))
+        
+    # Compress result before hand for memory management
+    if freq != 1 and freq % 10 == 0:
+        comp_result = result.compress(10)
+        del result
+        result = comp_result
+        freq //= 10
     
     if inc_images:
         animator = ImagesAvalancheAnimator()
@@ -263,10 +285,10 @@ def animate_folder(directory: str, output_ext: str = '', single_freq: bool = Tru
 if __name__ == '__main__':
     # plots = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 4.5, 5.0, 5.5, 6.0]
     # plots = [4.0, 4.5, 5.0, 5.5, 6.0]
+    # plots = [5.5]
     # for d in plots:
-    #     print(d)
-    #     gen_phase_plot(f'new_pins_continued_{d:.1f}', True, os.path.join('results', 'Figures', 'Phase_plots'), 10, False, 50, True)
-    # # gen_phase_plot('density_4.5_spread', True, os.path.join('results', 'Figures', 'Phase_plots'), 100)
+    #     gen_phase_plot(f'new_continued_{d:.1f}', True, os.path.join('results', 'Figures', 'Phase_plots'), 10, title=f'Event sizes for density {d:.1f}')
+    #     # gen_phase_plot(f'new_pins_continued_{d:.1f}', True, os.path.join('results', 'Figures', 'Phase_plots'), 10, False, 50, True)
     # plt.show(block=False)
     
     # s_maxes = list(range(10, 21, 2)) + list(range(21, 30))+ list(range(30, 51, 5))
@@ -285,7 +307,10 @@ if __name__ == '__main__':
     
     # input('Press enter to exit')
     
-    animate_file('new_continued_5.5', os.path.join('results', 'Simulation_results', 'AvalancheResult', 'New_pins'))#, 'images', inc_images=True)
+    # animate_file('new_pins_continued_5.5', os.path.join('results', 'Simulation_results', 'AvalancheResult', 'New_pins'))
+    # animate_file('new_continued_3.0', os.path.join('results', 'Simulation_results', 'AvalancheResult', 'Density_sweep'))
+    # animate_file('big5.5_init', os.path.join('results', 'Simulation_results', 'AvalancheResult'))
     # animate_folder(os.path.join('results', 'Simulation_results', 'AvalancheResult', 'Density_sweep'))
-    # gen_path_plots(os.path.join('results', 'Figures', 'Event_paths', 'NewPins5.0_cont_events'), 'new_pins_continued_5.0', time_start=10)
+    gen_path_plots(os.path.join('results', 'Figures', 'Event_paths', 'NewPins5.5_cont_events'), 'new_pins_continued_5.5', time_start=10)
     # gen_density_plot(os.path.join('results', 'Figures', 'Density_gradients', 'Density6.0_gradient'), 'density_sweep_6.0')
+    pass
