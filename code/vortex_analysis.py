@@ -52,11 +52,11 @@ def phase_plot(events_lst: List[int], title=None, exclude_zero: bool = False,
     
     return fig, ax
 
-def gen_phase_plot(filename: str, exclude_zero: bool = False, save_dir: Optional[str] = None,
+def gen_phase_plot(filename: str, title: Optional[str] = None, save_dir: Optional[str] = None,
                    time_start: int = 0, show: bool = True, s_max: Optional[int] = None, log: bool = False,
                    result_type: Union[Type[AvalancheResult], Type[BasicAvalancheResult]] = AvalancheResult,
-                   title: Optional[str] = None):
-    result = result_type.load(os.path.join('Density_sweep', filename))
+                   exclude_zero: bool = False):
+    result = result_type.load(os.path.join('New_pins', filename))
     sizes = result.get_event_sizes(time_start)
     del result # Delete for memory management
     if title is None:
@@ -287,20 +287,20 @@ if __name__ == '__main__':
     # plots = [4.0, 4.5, 5.0, 5.5, 6.0]
     # plots = [5.5]
     # for d in plots:
-    #     gen_phase_plot(f'new_continued_{d:.1f}', True, os.path.join('results', 'Figures', 'Phase_plots'), 10, title=f'Event sizes for density {d:.1f}')
+    #     gen_phase_plot(f'new_pins_continued_{d:.1f}', f'Event sizes for density {d:.1f}', os.path.join('results', 'Figures', 'Phase_plots'), 10, False, log=True)
     #     # gen_phase_plot(f'new_pins_continued_{d:.1f}', True, os.path.join('results', 'Figures', 'Phase_plots'), 10, False, 50, True)
     # plt.show(block=False)
     
-    # s_maxes = list(range(10, 21, 2)) + list(range(21, 30))+ list(range(30, 51, 5))
-    # name = 'new_pins_continued_5.5'
-    # result = AvalancheResult.load(os.path.join('New_pins', name))
-    # sizes = result.get_event_sizes(10)
-    # del result
-    # for s_max in s_maxes:
-    #     print(f'{s_max = }')
-    #     gen_phase_plot_from_sizes(sizes, f'density55_smax_{s_max}', True, os.path.join('results', 'Figures', 'Phase_plots'), False, s_max, True)
-    #     gen_phase_plot_from_sizes(sizes, f'density55_smax_{s_max}', True, os.path.join('results', 'Figures', 'Phase_plots'), False, s_max, False)
-    # plt.show(block=False)
+    s_maxes = list(range(10, 21, 2)) + list(range(21, 30))+ list(range(30, 51, 5))
+    name = 'new_pins_continued_6.0'
+    result = AvalancheResult.load(os.path.join('New_pins', name))
+    sizes = result.get_event_sizes(10)
+    del result
+    for s_max in s_maxes:
+        print(f'{s_max = }')
+        gen_phase_plot_from_sizes(sizes, f'density60_smax_{s_max}', f'Power law fit for density 6.0', os.path.join('results', 'Figures', 'Phase_plots'), False, s_max, True)
+        gen_phase_plot_from_sizes(sizes, f'density60_smax_{s_max}', f'Power law fit for density 6.0', os.path.join('results', 'Figures', 'Phase_plots'), False, s_max, False)
+    plt.show(block=False)
     
     # pin_plot('new_pins_continued_5.5', 'New_pins', os.path.join('results', 'Figures'))
     # pin_plot('continued_5.5', 'Density_sweep', os.path.join('results', 'Figures'))
@@ -311,6 +311,6 @@ if __name__ == '__main__':
     # animate_file('new_continued_3.0', os.path.join('results', 'Simulation_results', 'AvalancheResult', 'Density_sweep'))
     # animate_file('big5.5_init', os.path.join('results', 'Simulation_results', 'AvalancheResult'))
     # animate_folder(os.path.join('results', 'Simulation_results', 'AvalancheResult', 'Density_sweep'))
-    gen_path_plots(os.path.join('results', 'Figures', 'Event_paths', 'NewPins5.5_cont_events'), 'new_pins_continued_5.5', time_start=10)
+    # gen_path_plots(os.path.join('results', 'Figures', 'Event_paths', 'NewPins5.5_cont_events'), 'new_pins_continued_5.5', time_start=10)
     # gen_density_plot(os.path.join('results', 'Figures', 'Density_gradients', 'Density6.0_gradient'), 'density_sweep_6.0')
     pass
