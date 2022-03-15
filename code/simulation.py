@@ -1,7 +1,4 @@
-import os
-import pickle
-from dataclasses import dataclass, field
-from typing import Optional, Type, TypeVar
+from typing import Optional
 
 import matplotlib.animation as anim
 import matplotlib.pyplot as plt
@@ -9,69 +6,10 @@ import numpy as np
 import scipy.special as scipy_s
 import tqdm
 
+from avalanche_analysis_classes import SimResult
+
 BAR_FORMAT = '{desc}: {percentage:5.1f}%|{bar}{r_bar}'
-HALF_ROOT_3 = np.sqrt(3)/2
-SAVE_LOCATION = os.path.join('results', 'Simulation_results', '{cls.__name__}')
-
-
-_T = TypeVar('_T', bound='PickleClass')
-class PickleClass:
-    def save(self, filename, directory: Optional[str] = None):
-        if directory is None:
-            directory = SAVE_LOCATION.format(cls=self.__class__)
-        if not os.path.exists(directory):
-            print('Making dirs at', directory, flush=True)
-            os.makedirs(directory)
-        file_location = os.path.join(directory, filename)
-        with open(file_location, 'wb') as f:
-            print('Saving file to', file_location, flush=True)
-            pickle.dump(self, f)
-            
-    @classmethod
-    def load(cls: Type[_T], filename: str, directory: Optional[str] = None,
-             quiet=False) -> Optional[_T]:
-        if directory is None:
-            directory = SAVE_LOCATION.format(cls=cls)
-        if not os.path.exists(directory):
-            if not quiet:
-                print(f'{directory} not found', flush=True)
-            return None
-        with open(os.path.join(directory, filename), 'rb') as f:
-            if not quiet:
-                print(f'Loading result found at {os.path.join(directory, filename)}',
-                      flush=True)
-            result = pickle.load(f)
-            if isinstance(result, cls):
-                if not quiet:
-                    print('Result loaded', flush=True)
-                return result
-            else:
-                return None
-
-@dataclass
-class SimResult(PickleClass):
-    """Data class to store the results of a simulation"""
-    values: np.ndarray
-    dt: float
-    x_size: float
-    y_size: float
-    cutoff: float
-    num_t: int = field(init=False)
-    num_vortices: int = field(init=False)
-    t_max: float = field(init=False)
-    size_ary: np.ndarray = field(init=False)
-    
-    def __post_init__(self):
-        self.num_t, self.num_vortices, _ = self.values.shape
-        self.t_max = self.dt * self.num_t
-        self.size_ary = np.array([self.x_size, self.y_size])
-        
-    def get_average_velocity(self, start_index=0):
-        diff = self.values[start_index+1:, :, :] - self.values[start_index:-1, :, :]
-        diff = np.mod(diff + self.size_ary/2, self.size_ary) - self.size_ary/2
-        avg_diff = np.mean(diff, (0, 1))
-        
-        return avg_diff / self.dt
+HALF_ROOT_3: float = np.sqrt(3)/2
 
 
 class Simulation:

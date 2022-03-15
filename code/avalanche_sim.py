@@ -9,7 +9,8 @@ import numpy as np
 import tqdm
 
 import start_time
-from avalanche_analysis_classes import AvalancheAnimator, AvalancheResult
+import avalanche_animation as animation
+from avalanche_analysis_classes import AvalancheResult
 from simulation import BAR_FORMAT, HALF_ROOT_3, Simulation
 
 NP_FORMATTER = {'float': '{: .5e}'.format}
@@ -315,7 +316,7 @@ def main(length: int = LENGTH, width: int = WIDTH, repeats: int = REPEATS, densi
         print(f'{result.dt = }, {result.vortices_added = }')
         freq = int(input(f'{result.flattened_num_t} to animate. Enter frequency: '))
         
-        animator = AvalancheAnimator()
+        animator = animation.AvalancheAnimator()
         animator.animate(result, f'vortex_{name}.gif', freq)
     
 if __name__ == '__main__':

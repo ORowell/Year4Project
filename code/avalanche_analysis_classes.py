@@ -1,16 +1,71 @@
 import os
+import pickle
 from dataclasses import dataclass, field
 from operator import itemgetter
-from typing import List, Tuple, Union
+from typing import List, Optional, Tuple, Type, TypeVar, Union
 
-import matplotlib.animation as anim
-import matplotlib.pyplot as plt
 import numpy as np
-import tqdm
 
-from simulation import BAR_FORMAT, PickleClass
+SAVE_LOCATION = os.path.join('results', 'Simulation_results', '{cls.__name__}')
 
+_T = TypeVar('_T', bound='PickleClass')
+class PickleClass:
+    def save(self, filename, directory: Optional[str] = None):
+        if directory is None:
+            directory = SAVE_LOCATION.format(cls=self.__class__)
+        if not os.path.exists(directory):
+            print('Making dirs at', directory, flush=True)
+            os.makedirs(directory)
+        file_location = os.path.join(directory, filename)
+        with open(file_location, 'wb') as f:
+            print('Saving file to', file_location, flush=True)
+            pickle.dump(self, f)
+            
+    @classmethod
+    def load(cls: Type[_T], filename: str, directory: Optional[str] = None,
+             quiet=False) -> Optional[_T]:
+        if directory is None:
+            directory = SAVE_LOCATION.format(cls=cls)
+        if not os.path.exists(directory):
+            if not quiet:
+                print(f'{directory} not found', flush=True)
+            return None
+        with open(os.path.join(directory, filename), 'rb') as f:
+            if not quiet:
+                print(f'Loading result found at {os.path.join(directory, filename)}',
+                      flush=True)
+            result = pickle.load(f)
+            if isinstance(result, cls):
+                if not quiet:
+                    print('Result loaded', flush=True)
+                return result
+            else:
+                return None
 
+@dataclass
+class SimResult(PickleClass):
+    """Data class to store the results of a simulation"""
+    values: np.ndarray
+    dt: float
+    x_size: float
+    y_size: float
+    cutoff: float
+    num_t: int = field(init=False)
+    num_vortices: int = field(init=False)
+    t_max: float = field(init=False)
+    size_ary: np.ndarray = field(init=False)
+    
+    def __post_init__(self):
+        self.num_t, self.num_vortices, _ = self.values.shape
+        self.t_max = self.dt * self.num_t
+        self.size_ary = np.array([self.x_size, self.y_size])
+        
+    def get_average_velocity(self, start_index=0):
+        diff = self.values[start_index+1:, :, :] - self.values[start_index:-1, :, :]
+        diff = np.mod(diff + self.size_ary/2, self.size_ary) - self.size_ary/2
+        avg_diff = np.mean(diff, (0, 1))
+        
+        return avg_diff / self.dt
 @dataclass
 class AvalancheResult(PickleClass):
     """Data class to store the results of a simulation"""
@@ -85,7 +140,7 @@ class AvalancheResult(PickleClass):
         
         return AvalancheResult(new_vals, self.removed_vortices,self.pinning_sites, self.dt*freq,
                                self.x_size, self.y_size, self.repeats, self.random_gen,
-                               self.force_cutoff, self.movement_cutoff, self.movement_cutoff_time,
+                               self.force_cutoff, self.movement_cutoff, self.movement_cutoff_time//freq,
                                self.pinning_size, self.pinning_strength)
         
     def to_basic_result(self):
@@ -237,65 +292,3 @@ class BasicAvalancheResult(PickleClass):
             output.append(end_result_x)
         return output
     
-class AvalancheAnimator:
-    def animate(self, result: AvalancheResult, filename, anim_freq: int = 1,
-                event_range: Union[int, slice] = slice(None)):
-        self._result = result
-        self.flat_result = self._result.flatten(event_range)
-        self._y_size = self._result.y_size
-        
-        n_steps = len(self.flat_result)//anim_freq
-        self._anim_freq = anim_freq
-        self._p_bar = tqdm.tqdm(total=n_steps+1, desc='Animating ', unit='fr', bar_format=BAR_FORMAT)
-        
-        fig, _ = self._anim_init(self._result.max_vortices)
-        animator = anim.FuncAnimation(fig, self._anim_update, n_steps, blit=True)
-        
-        directory = os.path.join('results', 'gifs')
-        if not os.path.exists(directory):
-            os.makedirs(directory)
-        animator.save(os.path.join(directory, filename), fps=30)
-        self._p_bar.close()
-        
-    def _anim_init(self, max_vortices):
-        fig = plt.figure(figsize=(10, 10*self._result.y_size/self._result.x_size))
-        ax = fig.add_subplot(1, 1, 1)
-        ax.set_xlim([0, self._result.x_size])
-        ax.set_ylim([0, self._result.y_size])
-        
-        self._dots = [ax.plot([], [], 'o', c='r')[0] for i in range(max_vortices)]
-        
-        for vortex in self._result.pinning_sites:
-            ax.add_artist(plt.Circle(vortex, self._result.pinning_size, color='grey', alpha=0.3))
-            # Double draw vortices that go over the edge
-            vortex_y = vortex[1]
-            if vortex_y < self._result.pinning_size:
-                ax.add_artist(plt.Circle([vortex[0], vortex_y+self._y_size], self._result.pinning_size, color='grey', alpha=0.3))
-            elif vortex_y > self._y_size - self._result.pinning_size:
-                ax.add_artist(plt.Circle([vortex[0], vortex_y-self._y_size], self._result.pinning_size, color='grey', alpha=0.3))
-        
-        return fig, ax
-        
-    def _anim_update(self, frame_num: int):
-        self._p_bar.update(1)
-        values = self.flat_result[frame_num*self._anim_freq]
-        num_vortices = values.shape[0]
-        
-        compare_frame = frame_num*self._anim_freq - self._result.movement_cutoff_time
-        stationary = np.full(num_vortices, True)
-        if compare_frame >= 0:
-            last_values = self.flat_result[compare_frame]
-            # Only change colours if a vortex wasn't just added/deleted
-            if len(last_values) == num_vortices:
-                diff = values - last_values
-                diff = np.mod(diff + self._result.size_ary/2, self._result.size_ary) - self._result.size_ary/2
-                distance = np.linalg.norm(diff, axis=1)
-                stationary = distance < self._result.movement_cutoff*self._result.movement_cutoff_time
-        for i, dot in enumerate(self._dots):
-            if i < num_vortices:
-                dot.set_data(values[i])
-                dot.set_color('r' if stationary[i] else 'b')
-            else:
-                dot.set_data([], [])
-            
-        return self._dots

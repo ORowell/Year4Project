@@ -7,8 +7,8 @@ from matplotlib.axes import Axes
 from scipy.optimize import fsolve
 from scipy.stats import chisquare
 
+from avalanche_animation import AvalancheAnimator, ImagesAvalancheAnimator
 from avalanche_analysis_classes import AvalancheResult, BasicAvalancheResult
-from short_scripts import animate_file, animate_folder
 
 
 def phase_plot(events_lst: List[int], title=None, exclude_zero: bool = False,
@@ -233,6 +233,32 @@ def rand_power_law_vals(alpha, s_max, num_vals: int,
     out_vals = np.searchsorted(cdf, vals)+1
     
     return out_vals
+
+def animate_file(filename: str, directory: str, output_ext: str = '', freq: Optional[int] = None,
+                 event_range: Union[int, slice] = slice(None), inc_images: bool = False):
+    result = AvalancheResult.load(filename, directory)
+    if result is None:
+        print(f'Failed to load {filename}', flush=True)
+        return
+    if freq is None:
+        print(f'{result.movement_cutoff = }, {result.movement_cutoff_time = }')
+        print(f'{result.dt = }, {result.vortices_added = }')
+        freq = int(input(f'{len(result.flatten(event_range))} to animate. Enter frequency: '))
+    
+    if inc_images:
+        animator = ImagesAvalancheAnimator()
+    else:
+        animator = AvalancheAnimator()
+    animator.animate(result, f'{filename}{output_ext}.gif', freq, event_range)
+    
+    return freq
+
+def animate_folder(directory: str, output_ext: str = '', single_freq: bool = True):
+    freq_used = None
+    for filename in os.listdir(directory):
+        freq_used = animate_file(filename, directory, output_ext, freq_used)
+        if not single_freq:
+            freq_used = None
     
 if __name__ == '__main__':
     # plots = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 4.5, 5.0, 5.5, 6.0]
@@ -254,12 +280,12 @@ if __name__ == '__main__':
     #     gen_phase_plot_from_sizes(sizes, f'density55_smax_{s_max}', True, os.path.join('results', 'Figures', 'Phase_plots'), False, s_max, False)
     # plt.show(block=False)
     
-    pin_plot('new_pins_continued_5.5', 'New_pins', os.path.join('results', 'Figures'))
-    pin_plot('continued_5.5', 'Density_sweep', os.path.join('results', 'Figures'))
+    # pin_plot('new_pins_continued_5.5', 'New_pins', os.path.join('results', 'Figures'))
+    # pin_plot('continued_5.5', 'Density_sweep', os.path.join('results', 'Figures'))
     
-    input('Press enter to exit')
+    # input('Press enter to exit')
     
-    # animate_file('new_pins_continued_5.5', os.path.join('results', 'Simulation_results', 'AvalancheResult', 'New_pins'))#, event_range=193, output_ext='_event93')
+    animate_file('new_continued_5.5', os.path.join('results', 'Simulation_results', 'AvalancheResult', 'New_pins'))#, 'images', inc_images=True)
     # animate_folder(os.path.join('results', 'Simulation_results', 'AvalancheResult', 'Density_sweep'))
     # gen_path_plots(os.path.join('results', 'Figures', 'Event_paths', 'NewPins5.0_cont_events'), 'new_pins_continued_5.0', time_start=10)
     # gen_density_plot(os.path.join('results', 'Figures', 'Density_gradients', 'Density6.0_gradient'), 'density_sweep_6.0')
