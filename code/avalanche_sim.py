@@ -175,7 +175,7 @@ class VortexAvalancheBase(Simulation, ABC):
         
         if include_pbar:
             # Loop with progress bar
-            iterator = tqdm.tqdm(range(total_added), desc='Simulating', bar_format=BAR_FORMAT)
+            iterator = tqdm.tqdm(range(total_added), desc='Simulating', bar_format=BAR_FORMAT, smoothing=0)
         else:
             iterator = range(total_added)
         total_time_steps = 0
@@ -229,9 +229,15 @@ class VortexAvalancheBase(Simulation, ABC):
             result_vals.append(new_result_lst)
             removed_vortices.append(new_removed_vortex_lst)
             if max_time_steps is not None and total_time_steps >= max_time_steps:
+                if include_pbar:
+                    iterator.close()
+                    sys.stdout.flush()
                 print('Hit time step count. Ending simulation', flush=True)
                 break
             if wall_time != 0 and time() - start_time.START_TIME >= wall_time:
+                if include_pbar:
+                    iterator.close()
+                    sys.stdout.flush()
                 print('Hit wall time. Ending simulation', flush=True)
                 break
         else:

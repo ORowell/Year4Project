@@ -1,4 +1,5 @@
 import os
+import re
 from typing import List, Optional, Tuple, Type, Union
 
 import matplotlib.pyplot as plt
@@ -7,7 +8,6 @@ from matplotlib.axes import Axes
 from scipy.optimize import fsolve
 from scipy.stats import chisquare
 
-from avalanche_animation import AvalancheAnimator, ImagesAvalancheAnimator
 from avalanche_analysis_classes import AvalancheResult, BasicAvalancheResult
 
 
@@ -55,8 +55,8 @@ def phase_plot(events_lst: List[int], title=None, exclude_zero: bool = False,
 def gen_phase_plot(filename: str, title: Optional[str] = None, save_dir: Optional[str] = None,
                    time_start: int = 0, show: bool = True, s_max: Optional[int] = None, log: bool = False,
                    result_type: Union[Type[AvalancheResult], Type[BasicAvalancheResult]] = AvalancheResult,
-                   exclude_zero: bool = False):
-    result = result_type.load(os.path.join('New_pins', filename))
+                   exclude_zero: bool = True):
+    result = result_type.load(os.path.join('Density_sweep', filename))
     sizes = result.get_event_sizes(time_start)
     del result # Delete for memory management
     if title is None:
@@ -67,13 +67,13 @@ def gen_phase_plot(filename: str, title: Optional[str] = None, save_dir: Optiona
 def gen_phase_plot_from_sizes(sizes: List[int], filename: str, title: Optional[str] = None,
                               save_dir: Optional[str] = None, show: bool = True,
                               s_max: Optional[int] = None, log: bool = False,
-                              exclude_zero: bool = True):
+                              exclude_zero: bool = True, quiet: bool = False):
     # sizes = rand_power_law_vals(0.7, s_max, 300)
     if title is None:
         title = filename
-    _, ax = phase_plot(sizes, title, exclude_zero, False, log, s_max)
+    fig, ax = phase_plot(sizes, title, exclude_zero, False, log, s_max)
     if s_max is not None:
-        add_power_law(sizes, ax, s_max)
+        add_power_law(sizes, ax, s_max, quiet)
         plt.legend()
     if show:
         plt.show(block=False)
@@ -188,7 +188,8 @@ def zeta_ish(alpha: float, s_max: int) -> float:
     
     return h
     
-def power_law_fit(event_sizes: List[int], s_max: int, init_guess: float = 0.5) -> Tuple[float, float]:
+def power_law_fit(event_sizes: List[int], s_max: int, init_guess: float = 0.5,
+                  min_bin_size: int = 15, quiet: bool = False) -> Tuple[float, float]:
     sufficient_stat = 0.
     total_events = 0
     for size in event_sizes:
@@ -200,21 +201,23 @@ def power_law_fit(event_sizes: List[int], s_max: int, init_guess: float = 0.5) -
     
     alpha = fsolve(alpha_solve, init_guess, (s_max, sufficient_stat))[0]
     norm_factor = total_events / zeta_ish(alpha, s_max)
-    return alpha, norm_factor
+    
+    p_value = fitness_test(event_sizes, s_max, alpha, norm_factor, min_bin_size, quiet)
+    
+    return alpha, norm_factor, p_value
 
-def add_power_law(event_sizes: List[int], ax: Axes, s_max: int):
-    alpha, norm_factor = power_law_fit(event_sizes, s_max)
-    print(f'{-alpha = }')
-    x_min, _ = ax.get_xlim()
+def add_power_law(event_sizes: List[int], ax: Axes, s_max: int, quiet: bool = False):
+    alpha, norm_factor, p_value = power_law_fit(event_sizes, s_max, quiet=quiet)
+    if not quiet:
+        print(f'{-alpha = }')
+    x_min = max(ax.get_xlim()[0], 1.)
     x_vals = np.linspace(x_min, s_max)
     power_vals = x_vals**(-alpha) * norm_factor
-    
-    p_value = fitness_test(event_sizes, s_max, alpha, norm_factor, 15)
     
     ax.plot(x_vals, power_vals, 'r', label=f'$s^{{-{alpha:.3f}}}$, $s_0 = {s_max}$\nFit p-value of {p_value:.3g}')
     
 def fitness_test(event_sizes: List[int], s_max: int, alpha: float, norm_factor: float,
-                 min_bin_size: float):
+                 min_bin_size: int, quiet: bool = False):
     size_range = range(1, s_max+1)
     expected_vals = [size**(-alpha) * norm_factor for size in size_range]
     bin_edges: List[int] = [1]
@@ -231,14 +234,49 @@ def fitness_test(event_sizes: List[int], s_max: int, alpha: float, norm_factor: 
     
     expected_hist = np.array(expected_hist) #type: ignore
     observed_hist, _ = np.histogram(event_sizes, bins=bin_edges)
-    print(f'Using bins {bin_edges}')
-    print(f'which give expected values of {expected_hist}, sum={sum(expected_hist)}')
-    print(f'compared to observed values {observed_hist}, sum={sum(observed_hist)}')
     
     p_value = chisquare(observed_hist, expected_hist, 1).pvalue
-    print(p_value)
+    if not quiet:
+        print(f'Using bins {bin_edges}')
+        print(f'which give expected values of {expected_hist}, sum={sum(expected_hist)}')
+        print(f'compared to observed values {observed_hist}, sum={sum(observed_hist)}.')
+        print(f'{p_value = }')
     
     return p_value
+
+def naive_fit_smax(event_sizes: List[int]):
+    max_p_val = 0
+    best_s_max = 0
+    for s_max in range(10, 35):
+        *_, p_value = power_law_fit(event_sizes, s_max, quiet=True)
+        if p_value > max_p_val:
+            max_p_val = p_value
+            best_s_max = s_max
+    return best_s_max
+
+def fit_folder(directory: str):
+    save_dir = os.path.join('results', 'Figures', 'Phase_plots', 'Long_density5.5')
+    for filename in os.listdir(directory):
+        seed, = re.match(r'.*_(\d+)', filename).groups()
+        result = BasicAvalancheResult.load(filename)
+        sizes = result.get_event_sizes(10)
+        
+        # Plot pins as well
+        fig = plt.figure(figsize=(10, 10*result.y_size/result.x_size))
+        ax: Axes = fig.add_subplot(1, 1, 1)
+        ax.set_xlim([0, result.x_size])
+        ax.set_ylim([0, result.y_size])
+        add_pins_to_plot(ax, result)
+        plt.savefig(os.path.join(save_dir, f'{filename}_pins.jpg'))
+        plt.close(fig)
+        
+        del result
+        s_max = naive_fit_smax(sizes)
+        gen_phase_plot_from_sizes(sizes, filename, f'Power law fit for seed {seed}',
+                                  save_dir, False, s_max, quiet=True)
+        gen_phase_plot_from_sizes(sizes, filename, f'Power law fit for seed {seed}',
+                                  save_dir, False, s_max, True, quiet=True)
+        plt.close('all')
 
 def rand_power_law_vals(alpha, s_max, num_vals: int,
                         generator: Optional[np.random.Generator] = None):
@@ -258,22 +296,23 @@ def rand_power_law_vals(alpha, s_max, num_vals: int,
 if __name__ == '__main__':
     # plots = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 4.5, 5.0, 5.5, 6.0]
     # plots = [4.0, 4.5, 5.0, 5.5, 6.0]
-    # plots = [5.5]
+    # plots = [3.0, 5.5]
     # for d in plots:
-    #     gen_phase_plot(f'new_pins_continued_{d:.1f}', f'Event sizes for density {d:.1f}', os.path.join('results', 'Figures', 'Phase_plots'), 10, False, log=True)
+    #     gen_phase_plot(f'new_continued_{d:.1f}', f'Event sizes for density {d:.1f}', os.path.join('results', 'Figures', 'Phase_plots'), 10, False)
     #     # gen_phase_plot(f'new_pins_continued_{d:.1f}', True, os.path.join('results', 'Figures', 'Phase_plots'), 10, False, 50, True)
     # plt.show(block=False)
     
-    s_maxes = list(range(10, 21, 2)) + list(range(21, 30))+ list(range(30, 51, 5))
-    name = 'new_pins_continued_6.0'
-    result = AvalancheResult.load(os.path.join('New_pins', name))
-    sizes = result.get_event_sizes(10)
-    del result
-    for s_max in s_maxes:
-        print(f'{s_max = }')
-        gen_phase_plot_from_sizes(sizes, f'density60_smax_{s_max}', f'Power law fit for density 6.0', os.path.join('results', 'Figures', 'Phase_plots'), False, s_max, True)
-        gen_phase_plot_from_sizes(sizes, f'density60_smax_{s_max}', f'Power law fit for density 6.0', os.path.join('results', 'Figures', 'Phase_plots'), False, s_max, False)
-    plt.show(block=False)
+    # s_maxes = list(range(10, 21, 2)) + list(range(21, 30))+ list(range(30, 51, 5))
+    # name = 'new_pins_continued_6.0'
+    # result = AvalancheResult.load(os.path.join('New_pins', name))
+    # sizes = result.get_event_sizes(10)
+    # del result
+    # for s_max in s_maxes:
+    #     print(f'{s_max = }')
+    #     gen_phase_plot_from_sizes(sizes, f'density60_smax_{s_max}', f'Power law fit for density 6.0', os.path.join('results', 'Figures', 'Phase_plots'), False, s_max, True)
+    #     gen_phase_plot_from_sizes(sizes, f'density60_smax_{s_max}', f'Power law fit for density 6.0', os.path.join('results', 'Figures', 'Phase_plots'), False, s_max, False)
+    # plt.show(block=False)
+    fit_folder(os.path.join('results', 'Simulation_results', 'BasicAvalancheResult'), )
     
     # pin_plot('new_pins_continued_5.5', 'New_pins', os.path.join('results', 'Figures'))
     # pin_plot('continued_5.5', 'Density_sweep', os.path.join('results', 'Figures'))

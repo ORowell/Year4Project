@@ -58,14 +58,17 @@ class PickleClass:
             if not quiet:
                 print(f'Result found at {os.path.join(directory, filename)}',
                       flush=True)
-            with TQDMBytesReader(f, total=total) as pbar_f:
-                result = pickle.load(pbar_f)
-            if isinstance(result, cls):
-                if not quiet:
-                    print('Result loaded', flush=True)
-                return result
+            if total > 100*1e6:
+                with TQDMBytesReader(f, total=total) as pbar_f:
+                    result = pickle.load(pbar_f)
             else:
-                return None
+                result = pickle.load(f)
+        if isinstance(result, cls):
+            if not quiet:
+                print('Result loaded', flush=True)
+            return result
+        else:
+            return None
 
 @dataclass
 class SimResult(PickleClass):
