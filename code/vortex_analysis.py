@@ -130,23 +130,29 @@ def gen_path_plots(save_dir: str, filename: str, inc_pins: bool = True, time_sta
             add_pins_to_plot(ax, result)
         
         for path in path_lst:
-            path_y = path[:, 1]
-            y_diff = path_y[1:] - path_y[:-1]
-            # Work out when (if at all) the particle wraps
-            cuts, = np.nonzero(np.abs(y_diff) > result.y_size/2)
-            cuts += 1
-            if cuts.size == 0:
-                ax.plot(path[:, 0], path_y)
-            else:
-                p = ax.plot(path[:cuts[0], 0], path_y[:cuts[0]])
-                colour = p[0].get_color()
-                for j in range(cuts.size-1):
-                    if cuts[j+1] == cuts[j] + 1:
-                        continue
-                    ax.plot(path[cuts[j]:cuts[j+1], 0], path_y[cuts[j]:cuts[j+1]], color=colour)
-                ax.plot(path[cuts[-1]:, 0], path_y[cuts[-1]:], color=colour)
+            path_cuts = cut_path(path, result.y_size)
+            p = ax.plot(*path_cuts[0])
+            colour = p[0].get_color()
+            for path_sec in path_cuts[1:]:
+                ax.plot(*path_sec, color=colour)
         plt.savefig(os.path.join(save_dir,  f'vortex_add{i+time_start}-size-{sizes[i]}.jpg'))
         plt.close(fig)
+        
+def cut_path(path: np.ndarray, y_size: float) -> List[Tuple[np.ndarray, np.ndarray]]:
+    path_y = path[:, 1]
+    y_diff = path_y[1:] - path_y[:-1]
+    # Work out when (if at all) the particle wraps
+    cuts, = np.nonzero(np.abs(y_diff) > y_size/2)
+    cuts += 1
+    if cuts.size == 0:
+        return [(path[:, 0], path_y)]
+    path_outs = [(path[:cuts[0], 0], path_y[:cuts[0]])]
+    for j in range(cuts.size-1):
+        if cuts[j+1] == cuts[j] + 1:
+            continue
+        path_outs.append((path[cuts[j]:cuts[j+1], 0], path_y[cuts[j]:cuts[j+1]]))
+    path_outs.append((path[cuts[-1]:, 0], path_y[cuts[-1]:]))
+    return path_outs
         
 def gen_density_plot(save_dir: str, filename: str):
     if not os.path.exists(save_dir):
@@ -248,39 +254,6 @@ def rand_power_law_vals(alpha, s_max, num_vals: int,
     out_vals = np.searchsorted(cdf, vals)+1
     
     return out_vals
-
-def animate_file(filename: str, directory: str, output_ext: str = '', freq: Optional[int] = None,
-                 event_range: Union[int, slice] = slice(None), inc_images: bool = False):
-    result = AvalancheResult.load(filename, directory)
-    if result is None:
-        print(f'Failed to load {filename}', flush=True)
-        return
-    if freq is None:
-        print(f'{result.movement_cutoff = }, {result.movement_cutoff_time = }')
-        print(f'{result.dt = }, {result.vortices_added = }')
-        freq = int(input(f'{len(result.flatten(event_range))} to animate. Enter frequency: '))
-        
-    # Compress result before hand for memory management
-    if freq != 1 and freq % 10 == 0:
-        comp_result = result.compress(10)
-        del result
-        result = comp_result
-        freq //= 10
-    
-    if inc_images:
-        animator = ImagesAvalancheAnimator()
-    else:
-        animator = AvalancheAnimator()
-    animator.animate(result, f'{filename}{output_ext}.gif', freq, event_range)
-    
-    return freq
-
-def animate_folder(directory: str, output_ext: str = '', single_freq: bool = True):
-    freq_used = None
-    for filename in os.listdir(directory):
-        freq_used = animate_file(filename, directory, output_ext, freq_used)
-        if not single_freq:
-            freq_used = None
     
 if __name__ == '__main__':
     # plots = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 4.5, 5.0, 5.5, 6.0]
@@ -306,11 +279,6 @@ if __name__ == '__main__':
     # pin_plot('continued_5.5', 'Density_sweep', os.path.join('results', 'Figures'))
     
     # input('Press enter to exit')
-    
-    # animate_file('new_pins_continued_5.5', os.path.join('results', 'Simulation_results', 'AvalancheResult', 'New_pins'))
-    # animate_file('new_continued_3.0', os.path.join('results', 'Simulation_results', 'AvalancheResult', 'Density_sweep'))
-    # animate_file('big5.5_init', os.path.join('results', 'Simulation_results', 'AvalancheResult'))
-    # animate_folder(os.path.join('results', 'Simulation_results', 'AvalancheResult', 'Density_sweep'))
     # gen_path_plots(os.path.join('results', 'Figures', 'Event_paths', 'NewPins5.5_cont_events'), 'new_pins_continued_5.5', time_start=10)
     # gen_density_plot(os.path.join('results', 'Figures', 'Density_gradients', 'Density6.0_gradient'), 'density_sweep_6.0')
     pass
