@@ -129,7 +129,11 @@ def main(length: int = LENGTH, width: int = WIDTH, repeats: int = REPEATS, densi
         # Continue from a past state
         print(f'Loading past result at {start_from}', flush=True)
         past_result = AvalancheResult.load(start_from)
-        main_sim = StepAvalancheSim.continue_from(past_result)
+        if past_result is not None:
+            main_sim = StepAvalancheSim.continue_from(past_result)
+        else:
+            past_result = BasicAvalancheResult.load(start_from)
+            main_sim = StepAvalancheSim.continue_from_basic(past_result)
     print('Running main simulation', flush=True)
     result = main_sim.run_vortex_sim(num_vortices, dt, 9, movement_cutoff, 100,
                                      print_after=print_after, max_time_steps=max_time, save_comp=10,

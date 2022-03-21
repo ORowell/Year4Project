@@ -10,7 +10,7 @@ import tqdm
 
 import start_time
 import avalanche_animation as animation
-from avalanche_analysis_classes import AvalancheResult
+from avalanche_analysis_classes import AvalancheResult, BasicAvalancheResult
 from simulation import BAR_FORMAT, HALF_ROOT_3, Simulation
 
 NP_FORMATTER = {'float': '{: .5e}'.format}
@@ -132,6 +132,16 @@ class VortexAvalancheBase(Simulation, ABC):
                   past_result.repeats, past_result.pinning_size, past_result.pinning_strength)
         obj.pinning_sites = past_result.pinning_sites
         obj.vortices = past_result.values[-1][-1][-1, :, :]
+        obj.random_gen = past_result.random_gen
+        
+        return obj
+        
+    @classmethod
+    def continue_from_basic(cls, past_result: BasicAvalancheResult):
+        obj = cls(int(past_result.x_size), int(past_result.y_size/HALF_ROOT_3), 0,
+                  past_result.repeats, past_result.pinning_size, past_result.pinning_strength)
+        obj.pinning_sites = past_result.pinning_sites
+        obj.vortices = past_result.events[-1].moved_vortices[-1, :, :]
         obj.random_gen = past_result.random_gen
         
         return obj
