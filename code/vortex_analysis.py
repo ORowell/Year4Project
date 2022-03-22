@@ -255,7 +255,7 @@ def naive_fit_smax(event_sizes: List[int]):
     return best_s_max
 
 def fit_folder(directory: str):
-    save_dir = os.path.join('results', 'Figures', 'Phase_plots', 'Long_density5.5')
+    save_dir = os.path.join('results', 'Figures', 'Phase_plots', 'System_range5.5')
     for filename in os.listdir(directory):
         seed, = re.match(r'.*_(\d+)', filename).groups()
         result = BasicAvalancheResult.load(filename)
@@ -312,7 +312,7 @@ if __name__ == '__main__':
     #     gen_phase_plot_from_sizes(sizes, f'density60_smax_{s_max}', f'Power law fit for density 6.0', os.path.join('results', 'Figures', 'Phase_plots'), False, s_max, True)
     #     gen_phase_plot_from_sizes(sizes, f'density60_smax_{s_max}', f'Power law fit for density 6.0', os.path.join('results', 'Figures', 'Phase_plots'), False, s_max, False)
     # plt.show(block=False)
-    fit_folder(os.path.join('results', 'Simulation_results', 'BasicAvalancheResult'), )
+    fit_folder(os.path.join('results', 'Simulation_results', 'BasicAvalancheResult'))
     
     # pin_plot('new_pins_continued_5.5', 'New_pins', os.path.join('results', 'Figures'))
     # pin_plot('continued_5.5', 'Density_sweep', os.path.join('results', 'Figures'))

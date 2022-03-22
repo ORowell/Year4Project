@@ -128,10 +128,10 @@ def main(length: int = LENGTH, width: int = WIDTH, repeats: int = REPEATS, densi
     else:
         # Continue from a past state
         print(f'Loading past result at {start_from}', flush=True)
-        past_result = AvalancheResult.load(start_from)
-        if past_result is not None:
+        try:
+            past_result = AvalancheResult.load(start_from)
             main_sim = StepAvalancheSim.continue_from(past_result)
-        else:
+        except FileNotFoundError:
             past_result = BasicAvalancheResult.load(start_from)
             main_sim = StepAvalancheSim.continue_from_basic(past_result)
     print('Running main simulation', flush=True)
