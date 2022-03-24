@@ -206,7 +206,8 @@ class AvalancheResult(PickleClass):
             displacement = end_pos - start_pos
             displacement = np.mod(displacement + self.size_ary/2, self.size_ary) - self.size_ary/2
             distance_moved = np.linalg.norm(displacement, axis=1)
-            is_event = np.logical_and(distance_moved > rel_cutoff*self.pinning_size, end_pos[:, 0] >= x_min)
+            is_event = np.logical_and(distance_moved > rel_cutoff*self.pinning_size,
+                                      end_pos[:, 0] >= x_min)
             
             is_events.append((del_vortices, is_event))
         return is_events
@@ -250,7 +251,8 @@ class Event:
     number: int
     
     @classmethod
-    def from_data(cls, event_values: List[np.ndarray], removed_vortex_is: List[int], dt: float, number: int):
+    def from_data(cls, event_values: List[np.ndarray], removed_vortex_is: List[int],
+                  dt: float, number: int):
         start_pos = event_values[0][0, ...]
         end_pos = event_values[-1][-1, ...]
         removed_vortices = np.empty(shape=(0, 2))
@@ -308,7 +310,8 @@ class BasicAvalancheResult(PickleClass):
             displacement = end_pos - start_pos
             displacement = np.mod(displacement + self.size_ary/2, self.size_ary) - self.size_ary/2
             distance_moved = np.linalg.norm(displacement, axis=1)
-            is_event = np.logical_and(distance_moved > rel_cutoff*self.pinning_size, end_pos[:, 0] >= x_min)
+            is_event = np.logical_and(distance_moved > rel_cutoff*self.pinning_size,
+                                      end_pos[:, 0] >= x_min)
             
             is_events.append((len(event.removed_vortices), is_event))
         return is_events

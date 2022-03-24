@@ -90,7 +90,8 @@ class Simulation:
             iterator = range(num_steps)
         else:
             # Loop with progress bar
-            iterator = tqdm.tqdm(range(num_steps), desc='Simulating', bar_format=BAR_FORMAT, leave=leave_pbar)
+            iterator = tqdm.tqdm(range(num_steps), desc='Simulating',
+                                 bar_format=BAR_FORMAT, leave=leave_pbar)
         
         for i in iterator:
             self._step(dt, cutoff)
@@ -123,8 +124,10 @@ class Simulation:
     def _get_images(self, vortices):
         """Return an array of the images of each vortex in vortices"""
         # Find the offsets for each "tile" of images
-        x_offset = np.repeat(np.arange(-self.x_images, self.x_images+1), 2*self.y_images+1) * self.x_size
-        y_offset = np.tile(np.arange(-self.y_images, self.y_images+1), 2*self.x_images+1) * self.y_size
+        x_offset = np.repeat(np.arange(-self.x_images, self.x_images+1),
+                             2*self.y_images+1) * self.x_size
+        y_offset = np.tile(np.arange(-self.y_images, self.y_images+1),
+                           2*self.x_images+1) * self.y_size
         
         # Remove the (0, 0) cases (non-image)
         x_offset = np.delete(x_offset, x_offset.size//2, axis=0)
@@ -175,7 +178,8 @@ class SimAnimator:
         
         animator = anim.FuncAnimation(fig, self._anim_update, n_steps, blit=True)
         
-        self._p_bar = tqdm.tqdm(total=n_steps+1, desc='Animating ', unit='fr', bar_format=BAR_FORMAT)
+        self._p_bar = tqdm.tqdm(total=n_steps+1, desc='Animating ',
+                                unit='fr', bar_format=BAR_FORMAT)
         animator.save(f'results\\gifs\\{filename}', fps=30)
         self._p_bar.close()
         

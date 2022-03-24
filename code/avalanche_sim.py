@@ -174,9 +174,6 @@ class VortexAvalancheBase(Simulation, ABC):
     def run_vortex_sim(self, total_added: int, dt: float, force_cutoff: float, movement_cutoff: float,
                        cutoff_time: int = 1, include_pbar: bool = True, print_after: Optional[int] = None,
                        max_time_steps: Optional[int] = None, save_comp: int = 1, wall_time: float = 0.):
-        # if dt*self.pinning_strength > movement_cutoff:
-        #     warn(f'Pinning force is greater than allowed movement for given dt ({dt*self.pinning_strength} > {movement_cutoff}). \
-        #         Pinned vortices may move too much to be deemed stationary.')
         # Record the positions of the vortices at each time step
         result_vals = []
         removed_vortices: List[List[int]] = []
@@ -215,7 +212,8 @@ class VortexAvalancheBase(Simulation, ABC):
                         print()
                     if print_after is not None and this_vortex_count >= print_after:
                         np_out = np.array2string(displacement[np.argmax(distance)], formatter=NP_FORMATTER)
-                        print(f'Vortex {np.argmax(distance):>3}: {np_out:<35}{movement_cutoff*cutoff_time:.2e}', end='\r')
+                        print(f'Vortex {np.argmax(distance):>3}: {np_out:<35}{movement_cutoff*cutoff_time:.2e}',
+                              end='\r')
                     
                     if np.all(distance < movement_cutoff*cutoff_time):
                         new_result_lst.append(new_result_ary)

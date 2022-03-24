@@ -35,7 +35,7 @@ class AvalancheAnimator:
     def _anim_init(self, max_vortices: int):
         fig = plt.figure(figsize=(10, 10*self._result.y_size/self._result.x_size))
         ax: Axes = fig.add_subplot(1, 1, 1)
-        fig.tight_layout()
+        # fig.tight_layout()
         ax.set_xlim([0, self._result.x_size])
         ax.set_ylim([0, self._result.y_size])
         
@@ -46,9 +46,11 @@ class AvalancheAnimator:
             # Double draw vortices that go over the edge
             vortex_y = vortex[1]
             if vortex_y < self._result.pinning_size:
-                ax.add_artist(plt.Circle([vortex[0], vortex_y+self._y_size], self._result.pinning_size, color='grey', alpha=0.3))
+                ax.add_artist(plt.Circle([vortex[0], vortex_y+self._y_size],
+                                         self._result.pinning_size, color='grey', alpha=0.3))
             elif vortex_y > self._y_size - self._result.pinning_size:
-                ax.add_artist(plt.Circle([vortex[0], vortex_y-self._y_size], self._result.pinning_size, color='grey', alpha=0.3))
+                ax.add_artist(plt.Circle([vortex[0], vortex_y-self._y_size],
+                                         self._result.pinning_size, color='grey', alpha=0.3))
         
         return fig, ax
         
@@ -64,9 +66,11 @@ class AvalancheAnimator:
             # Only change colours if a vortex wasn't just added/deleted
             if len(last_values) == num_vortices:
                 diff = values - last_values
-                diff = np.mod(diff + self._result.size_ary/2, self._result.size_ary) - self._result.size_ary/2
+                diff = (np.mod(diff + self._result.size_ary/2, self._result.size_ary)
+                        - self._result.size_ary/2)
                 distance = np.linalg.norm(diff, axis=1)
-                self._stationary = distance < self._result.movement_cutoff*self._result.movement_cutoff_time
+                self._stationary = (distance <
+                                    self._result.movement_cutoff*self._result.movement_cutoff_time)
         for i, dot in enumerate(self._dots):
             if i < num_vortices:
                 dot.set_data(values[i])
@@ -92,8 +96,9 @@ class ImagesAvalancheAnimator(AvalancheAnimator):
         ax.set_xlim([-self._result.x_size, self._result.x_size])
         ax.set_ylim([-self._image_num*self._result.y_size, self._result.y_size*(1+self._image_num)])
         
-        self._blank_sim = sims.StepAvalancheSim(self._result.x_size, self._result.y_size/HALF_ROOT_3,
-                                          0, self._image_num, 0, 0)
+        self._blank_sim = sims.StepAvalancheSim(self._result.x_size,
+                                                self._result.y_size/HALF_ROOT_3,
+                                                0, self._image_num, 0, 0)
         for i, dot in enumerate(self._dots):
             if i >= self.max_real:
                 dot.set_alpha(0.3)
@@ -144,13 +149,14 @@ class EventAnimator(AvalancheAnimator):
             self.flat_values.append(flat_event_vals)
         
         self._event_steps = list(map(len, self.flat_values))
-        n_steps = sum(self._event_steps)//anim_freq + (len(self._event_steps) - 1)*pause_frames
+        n_steps = sum(self._event_steps)//anim_freq + len(self._event_steps)*pause_frames
         self._anim_freq = anim_freq
         self._pause_time = pause_frames
         self._current_event_i = 0
         self._pausing = 0
         
-        self._p_bar = tqdm.tqdm(total=n_steps+1, desc='Animating ', unit='fr', bar_format=BAR_FORMAT)
+        self._p_bar = tqdm.tqdm(total=n_steps+1, desc='Animating ',
+                                unit='fr', bar_format=BAR_FORMAT)
         
         fig, _ = self._anim_init(self._result.max_vortices)
         animator = anim.FuncAnimation(fig, self._anim_update, n_steps, blit=True)
@@ -165,7 +171,8 @@ class EventAnimator(AvalancheAnimator):
         fig, ax = super()._anim_init(max_vortices)
         self._largest_event = max(map(len, self._event_paths))
         
-        self._event_lines = [ax.plot([], [])[0] for _ in range(int(self._largest_event*max_path_lines))]
+        self._event_lines = [ax.plot([], [])[0]
+                             for _ in range(int(self._largest_event*max_path_lines))]
         
         return fig, ax
         
@@ -214,9 +221,11 @@ class EventAnimator(AvalancheAnimator):
             # Only change colours if a vortex wasn't just added/deleted
             if len(last_values) == num_vortices:
                 diff = values - last_values
-                diff = np.mod(diff + self._result.size_ary/2, self._result.size_ary) - self._result.size_ary/2
+                diff = (np.mod(diff + self._result.size_ary/2, self._result.size_ary)
+                        - self._result.size_ary/2)
                 distance = np.linalg.norm(diff, axis=1)
-                self._stationary = distance < self._result.movement_cutoff*self._result.movement_cutoff_time
+                self._stationary = (distance <
+                                    self._result.movement_cutoff*self._result.movement_cutoff_time)
         for i, dot in enumerate(self._dots):
             if i < num_vortices:
                 dot.set_data(values[i])
@@ -266,10 +275,14 @@ def animate_folder(directory: str, output_ext: str = '', single_freq: bool = Tru
             freq_used = None
             
 if __name__ == '__main__':
-    # animate_file('new_pins_continued_5.5', os.path.join('results', 'Simulation_results', 'AvalancheResult', 'New_pins'))
-    animate_file('new_continued_5.5', os.path.join('results', 'Simulation_results', 'AvalancheResult', 'Density_sweep'),
-                 '_events', style='events', pause_frames=15)
-                #  '_event261', 5, slice(256, 262), 'events', pause_frames=100)
-    # animate_file('big5.5_init', os.path.join('results', 'Simulation_results', 'AvalancheResult'))
+    # animate_file('new_pins_continued_5.5',
+    #              os.path.join('results', 'Simulation_results', 'AvalancheResult', 'New_pins'),
+    #              '_event207', 10, slice(203, 209), 'events', pause_frames=20)
+    #             #  '_event134', 10, slice(130, 136), 'events', pause_frames=20)
+    # animate_file('new_continued_5.5',
+    #              os.path.join('results', 'Simulation_results', 'AvalancheResult', 'Density_sweep'),
+    #              '_events', style='events', pause_frames=10)
+    #             #  '_event261', 5, slice(256, 262), 'events', pause_frames=100)
+    animate_file('big5.5', os.path.join('results', 'Simulation_results', 'AvalancheResult'))
     # animate_folder(os.path.join('results', 'Simulation_results', 'AvalancheResult', 'Density_sweep'))
     pass

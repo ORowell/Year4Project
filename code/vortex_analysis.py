@@ -53,8 +53,10 @@ def phase_plot(events_lst: List[int], title=None, exclude_zero: bool = False,
     return fig, ax
 
 def gen_phase_plot(filename: str, title: Optional[str] = None, save_dir: Optional[str] = None,
-                   time_start: int = 0, show: bool = True, s_max: Optional[int] = None, log: bool = False,
-                   result_type: Union[Type[AvalancheResult], Type[BasicAvalancheResult]] = AvalancheResult,
+                   time_start: int = 0, show: bool = True,
+                   s_max: Optional[int] = None, log: bool = False,
+                   result_type: Union[Type[AvalancheResult],
+                                      Type[BasicAvalancheResult]] = AvalancheResult,
                    exclude_zero: bool = True):
     result = result_type.load(os.path.join('Density_sweep', filename))
     sizes = result.get_event_sizes(time_start)
@@ -95,9 +97,11 @@ def add_pins_to_plot(ax: Axes, result: Union[AvalancheResult, BasicAvalancheResu
         # Double draw vortices that go over the edge
         vortex_y = pinned_vortex[1]
         if vortex_y < result.pinning_size:
-            ax.add_artist(plt.Circle([pinned_vortex[0], vortex_y+result.y_size], result.pinning_size, color='grey', alpha=0.3))
+            ax.add_artist(plt.Circle([pinned_vortex[0], vortex_y+result.y_size],
+                                     result.pinning_size, color='grey', alpha=0.3))
         elif vortex_y > result.y_size - result.pinning_size:
-            ax.add_artist(plt.Circle([pinned_vortex[0], vortex_y-result.y_size], result.pinning_size, color='grey', alpha=0.3))
+            ax.add_artist(plt.Circle([pinned_vortex[0], vortex_y-result.y_size],
+                                     result.pinning_size, color='grey', alpha=0.3))
             
 def pin_plot(filename: str, load_folder: str = '', save_dir: Optional[str] = None, show: bool = True,
              result_type: Union[Type[AvalancheResult], Type[BasicAvalancheResult]] = AvalancheResult):
@@ -214,7 +218,8 @@ def add_power_law(event_sizes: List[int], ax: Axes, s_max: int, quiet: bool = Fa
     x_vals = np.linspace(x_min, s_max)
     power_vals = x_vals**(-alpha) * norm_factor
     
-    ax.plot(x_vals, power_vals, 'r', label=f'$s^{{-{alpha:.3f}}}$, $s_0 = {s_max}$\nFit p-value of {p_value:.3g}')
+    ax.plot(x_vals, power_vals, 'r',
+            label=f'$s^{{-{alpha:.3f}}}$, $s_0 = {s_max}$\nFit p-value of {p_value:.3g}')
     
 def fitness_test(event_sizes: List[int], s_max: int, alpha: float, norm_factor: float,
                  min_bin_size: int, quiet: bool = False):
@@ -298,8 +303,10 @@ if __name__ == '__main__':
     # plots = [4.0, 4.5, 5.0, 5.5, 6.0]
     # plots = [3.0, 5.5]
     # for d in plots:
-    #     gen_phase_plot(f'new_continued_{d:.1f}', f'Event sizes for density {d:.1f}', os.path.join('results', 'Figures', 'Phase_plots'), 10, False)
-    #     # gen_phase_plot(f'new_pins_continued_{d:.1f}', True, os.path.join('results', 'Figures', 'Phase_plots'), 10, False, 50, True)
+    #     gen_phase_plot(f'new_continued_{d:.1f}',f'Event sizes for density {d:.1f}',
+    #                    os.path.join('results', 'Figures', 'Phase_plots'), 10, False)
+    #     gen_phase_plot(f'new_pins_continued_{d:.1f}', True,
+    #                    os.path.join('results', 'Figures', 'Phase_plots'), 10, False, 50, True)
     # plt.show(block=False)
     
     # s_maxes = list(range(10, 21, 2)) + list(range(21, 30))+ list(range(30, 51, 5))
@@ -309,8 +316,12 @@ if __name__ == '__main__':
     # del result
     # for s_max in s_maxes:
     #     print(f'{s_max = }')
-    #     gen_phase_plot_from_sizes(sizes, f'density60_smax_{s_max}', f'Power law fit for density 6.0', os.path.join('results', 'Figures', 'Phase_plots'), False, s_max, True)
-    #     gen_phase_plot_from_sizes(sizes, f'density60_smax_{s_max}', f'Power law fit for density 6.0', os.path.join('results', 'Figures', 'Phase_plots'), False, s_max, False)
+    #     gen_phase_plot_from_sizes(sizes, f'density60_smax_{s_max}', f'Power law fit for density 6.0',
+    #                               os.path.join('results', 'Figures', 'Phase_plots'),
+    #                               False, s_max, True)
+    #     gen_phase_plot_from_sizes(sizes, f'density60_smax_{s_max}', f'Power law fit for density 6.0',
+    #                               os.path.join('results', 'Figures', 'Phase_plots'),
+    #                               False, s_max, False)
     # plt.show(block=False)
     fit_folder(os.path.join('results', 'Simulation_results', 'BasicAvalancheResult'))
     
@@ -318,6 +329,8 @@ if __name__ == '__main__':
     # pin_plot('continued_5.5', 'Density_sweep', os.path.join('results', 'Figures'))
     
     # input('Press enter to exit')
-    # gen_path_plots(os.path.join('results', 'Figures', 'Event_paths', 'NewPins5.5_cont_events'), 'new_pins_continued_5.5', time_start=10)
-    # gen_density_plot(os.path.join('results', 'Figures', 'Density_gradients', 'Density6.0_gradient'), 'density_sweep_6.0')
+    # gen_path_plots(os.path.join('results', 'Figures', 'Event_paths', 'NewPins5.5_cont_events'),
+    #                'new_pins_continued_5.5', time_start=10)
+    # gen_density_plot(os.path.join('results', 'Figures', 'Density_gradients', 'Density6.0_gradient'),
+    #                  'density_sweep_6.0')
     pass
