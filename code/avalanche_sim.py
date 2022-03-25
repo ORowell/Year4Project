@@ -183,8 +183,13 @@ class VortexAvalancheBase(Simulation, ABC):
         if include_pbar:
             # Loop with progress bar
             iterator = tqdm.tqdm(range(total_added), desc='Simulating', bar_format=BAR_FORMAT, smoothing=0)
+            if sys.platform == 'win32':
+                time_pbar = tqdm.tqdm(desc='Time steps', position=1)
+            else:
+                time_pbar = tqdm.tqdm(desc='Time steps', position=1, mininterval=30, maxinterval=300)
         else:
             iterator = range(total_added)
+            time_pbar = None
         total_time_steps = 0
         for i in iterator:
             new_removed_vortex_lst: List[int] = []
@@ -198,6 +203,8 @@ class VortexAvalancheBase(Simulation, ABC):
                 this_vortex_count += 1
                 total_time_steps += 1
                 self._step(dt, force_cutoff)
+                if time_pbar is not None:
+                    time_pbar.update()
                 if total_time_steps % save_comp == 0:
                     new_result_ary = np.append(new_result_ary, self.vortices[np.newaxis, ...], axis=0)
                 
