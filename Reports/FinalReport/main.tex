@@ -1,0 +1,47 @@
+\documentclass[a4paper, twoside]{article}
+
+%% Language and font encodings
+\usepackage[english]{babel}
+\usepackage[utf8x]{inputenc}
+\usepackage[T1]{fontenc}
+
+%% Sets page size and margins
+\usepackage[margin=1in]{geometry}
+
+%% Useful packages
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage[colorinlistoftodos]{todonotes}
+\usepackage{hyperref}
+\usepackage{crop,array,color,amssymb,flushend,stfloats,amsthm,chngpage,times,fancyhdr,lipsum,lastpage}
+\usepackage{subcaption}
+\numberwithin{equation}{section}
+\usepackage[backend=biber,sorting=none]{biblatex}
+\addbibresource{references.bib}
+
+\renewcommand{\bottomfraction}{0.6}
+\allowdisplaybreaks
+
+\title{Project Title}
+\author{Owen Rowell}
+% Update supervisor and other title stuff in title/title.tex
+
+\begin{document}
+\input{title/title.tex}
+
+\begin{abstract}
+Your abstract goes here
+\end{abstract}
+
+\renewcommand{\abstractname}{Acknowledgements}
+\begin{abstract}
+Thanks mum!
+\end{abstract}
+
+\tableofcontents
+\listoffigures
+\listoftables
+
+\printbibliography
+
+\end{document}
