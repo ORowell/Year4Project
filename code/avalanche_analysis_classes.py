@@ -1,14 +1,99 @@
-from typing import List, Tuple, Union
-from simulation import PickleClass, BAR_FORMAT
-
 import os
-from operator import itemgetter
-import numpy as np
+import pickle
 from dataclasses import dataclass, field
-import matplotlib.pyplot as plt
-import matplotlib.animation as anim
-import tqdm
+from operator import itemgetter
+from typing import List, Optional, Tuple, Type, TypeVar, Union
 
+import numpy as np
+
+SAVE_LOCATION = os.path.join('results', 'Simulation_results', '{cls.__name__}')
+
+class TQDMBytesReader(object):
+    def __init__(self, fd, **kwargs):
+        self.fd = fd
+        from tqdm import tqdm
+        self.tqdm = tqdm(unit_scale=True, desc='Loading result', unit='B', **kwargs)
+
+    def read(self, size=-1):
+        bytes = self.fd.read(size)
+        self.tqdm.update(len(bytes))
+        return bytes
+
+    def readline(self):
+        bytes = self.fd.readline()
+        self.tqdm.update(len(bytes))
+        return bytes
+
+    def __enter__(self):
+        self.tqdm.__enter__()
+        return self
+
+    def __exit__(self, *args, **kwargs):
+        return self.tqdm.__exit__(*args, **kwargs)
+
+_T = TypeVar('_T', bound='PickleClass')
+class PickleClass:
+    def save(self, filename, directory: Optional[str] = None):
+        if directory is None:
+            directory = SAVE_LOCATION.format(cls=self.__class__)
+        if not os.path.exists(directory):
+            print('Making dirs at', directory, flush=True)
+            os.makedirs(directory)
+        file_location = os.path.join(directory, filename)
+        with open(file_location, 'wb') as f:
+            print('Saving file to', file_location, flush=True)
+            pickle.dump(self, f)
+            
+    @classmethod
+    def load(cls: Type[_T], filename: str, directory: Optional[str] = None,
+             quiet=False) -> Optional[_T]:
+        if directory is None:
+            directory = SAVE_LOCATION.format(cls=cls)
+        if not os.path.exists(directory):
+            if not quiet:
+                print(f'{directory} not found', flush=True)
+            return None
+        with open(os.path.join(directory, filename), 'rb') as f:
+            total = os.path.getsize(os.path.join(directory, filename))
+            if not quiet:
+                print(f'Result found at {os.path.join(directory, filename)}',
+                      flush=True)
+            if total > 100*1e6:
+                with TQDMBytesReader(f, total=total) as pbar_f:
+                    result = pickle.load(pbar_f)
+            else:
+                result = pickle.load(f)
+        if isinstance(result, cls):
+            if not quiet:
+                print('Result loaded', flush=True)
+            return result
+        else:
+            return None
+
+@dataclass
+class SimResult(PickleClass):
+    """Data class to store the results of a simulation"""
+    values: np.ndarray
+    dt: float
+    x_size: float
+    y_size: float
+    cutoff: float
+    num_t: int = field(init=False)
+    num_vortices: int = field(init=False)
+    t_max: float = field(init=False)
+    size_ary: np.ndarray = field(init=False)
+    
+    def __post_init__(self):
+        self.num_t, self.num_vortices, _ = self.values.shape
+        self.t_max = self.dt * self.num_t
+        self.size_ary = np.array([self.x_size, self.y_size])
+        
+    def get_average_velocity(self, start_index=0):
+        diff = self.values[start_index+1:, :, :] - self.values[start_index:-1, :, :]
+        diff = np.mod(diff + self.size_ary/2, self.size_ary) - self.size_ary/2
+        avg_diff = np.mean(diff, (0, 1))
+        
+        return avg_diff / self.dt
 @dataclass
 class AvalancheResult(PickleClass):
     """Data class to store the results of a simulation"""
@@ -83,10 +168,20 @@ class AvalancheResult(PickleClass):
         
         return AvalancheResult(new_vals, self.removed_vortices,self.pinning_sites, self.dt*freq,
                                self.x_size, self.y_size, self.repeats, self.random_gen,
-                               self.force_cutoff, self.movement_cutoff, self.movement_cutoff_time,
+                               self.force_cutoff, self.movement_cutoff, self.movement_cutoff_time//freq,
                                self.pinning_size, self.pinning_strength)
+        
+    def to_basic_result(self):
+        events = []
+        for i, (event_data, removed_vortices) in enumerate(zip(self.values, self.removed_vortices)):
+            events.append(Event.from_data(event_data, removed_vortices, self.dt, i))
+            
+        return BasicAvalancheResult(events, self.pinning_sites, self.x_size, self.y_size,
+                                    self.repeats, self.random_gen, self.force_cutoff,
+                                    self.movement_cutoff, self.movement_cutoff_time,
+                                    self.pinning_size, self.pinning_strength)
     
-    def get_event_sizes(self, rel_cutoff: float = 2, time_start: int = 0, x_min: float = 0):
+    def get_event_sizes(self, time_start: int = 0, x_min: float = 1, rel_cutoff: float = 2):
         events: List[int] = []
         is_events = self.get_events(rel_cutoff, time_start, x_min)
         for del_vortices, is_event in is_events:
@@ -111,12 +206,13 @@ class AvalancheResult(PickleClass):
             displacement = end_pos - start_pos
             displacement = np.mod(displacement + self.size_ary/2, self.size_ary) - self.size_ary/2
             distance_moved = np.linalg.norm(displacement, axis=1)
-            is_event = np.logical_and(distance_moved > rel_cutoff*self.pinning_size, end_pos[:, 0] >= x_min)
+            is_event = np.logical_and(distance_moved > rel_cutoff*self.pinning_size,
+                                      end_pos[:, 0] >= x_min)
             
             is_events.append((del_vortices, is_event))
         return is_events
     
-    def get_event_paths(self, rel_cutoff: float = 2, time_start: int = 0, x_min: float = 0):
+    def get_event_paths(self, time_start: int = 0, x_min: float = 1, rel_cutoff: float = 2):
         events_paths: List[List[np.ndarray]] = []
         is_events = self.get_events(rel_cutoff, time_start, x_min)
         for (del_vortices, is_event), data in zip(is_events, self.values[time_start:]):
@@ -146,66 +242,84 @@ class AvalancheResult(PickleClass):
             end_result_x = vortex_added[-1][-1, :, 0]
             output.append(end_result_x)
         return output
+    
+@dataclass
+class Event:
+    moved_vortices: np.ndarray
+    removed_vortices: np.ndarray
+    time_length: float
+    number: int
+    
+    @classmethod
+    def from_data(cls, event_values: List[np.ndarray], removed_vortex_is: List[int],
+                  dt: float, number: int):
+        start_pos = event_values[0][0, ...]
+        end_pos = event_values[-1][-1, ...]
+        removed_vortices = np.empty(shape=(0, 2))
         
-class AvalancheAnimator:
-    def animate(self, result: AvalancheResult, filename, anim_freq: int = 1,
-                event_range: Union[int, slice] = slice(None)):
-        self._result = result
-        self.flat_result = self._result.flatten(event_range)
-        self._y_size = self._result.y_size
+        # Separate removed vortices from the other data
+        for removed_i in removed_vortex_is:
+            removed_vortices = np.append(removed_vortices, start_pos[np.newaxis, removed_i, :], axis=0)
+            start_pos = np.delete(start_pos, removed_i, axis=0)
         
-        n_steps = len(self.flat_result)//anim_freq
-        self._anim_freq = anim_freq
-        self._p_bar = tqdm.tqdm(total=n_steps+1, desc='Animating ', unit='fr', bar_format=BAR_FORMAT)
+        event_data = np.stack((start_pos, end_pos), axis=0)
         
-        fig, _ = self._anim_init(self._result.max_vortices)
-        animator = anim.FuncAnimation(fig, self._anim_update, n_steps, blit=True)
+        # Calculate the number of time steps in the event
+        time_steps = sum(map(lambda ary: len(ary)-1, event_values))
         
-        directory = os.path.join('results', 'gifs')
-        if not os.path.exists(directory):
-            os.makedirs(directory)
-        animator.save(os.path.join(directory, filename), fps=30)
-        self._p_bar.close()
-        
-    def _anim_init(self, max_vortices):
-        fig = plt.figure(figsize=(10, 10*self._result.y_size/self._result.x_size))
-        ax = fig.add_subplot(1, 1, 1)
-        ax.set_xlim([0, self._result.x_size])
-        ax.set_ylim([0, self._result.y_size])
-        
-        self._dots = [ax.plot([], [], 'o', c='r')[0] for i in range(max_vortices)]
-        
-        for vortex in self._result.pinning_sites:
-            ax.add_artist(plt.Circle(vortex, self._result.pinning_size, color='grey', alpha=0.3))
-            # Double draw vortices that go over the edge
-            vortex_y = vortex[1]
-            if vortex_y < self._result.pinning_size:
-                ax.add_artist(plt.Circle([vortex[0], vortex_y+self._y_size], self._result.pinning_size, color='grey', alpha=0.3))
-            elif vortex_y > self._y_size - self._result.pinning_size:
-                ax.add_artist(plt.Circle([vortex[0], vortex_y-self._y_size], self._result.pinning_size, color='grey', alpha=0.3))
-        
-        return fig, ax
-        
-    def _anim_update(self, frame_num: int):
-        self._p_bar.update(1)
-        values = self.flat_result[frame_num*self._anim_freq]
-        num_vortices = values.shape[0]
-        
-        compare_frame = frame_num*self._anim_freq - self._result.movement_cutoff_time
-        stationary = np.full(num_vortices, True)
-        if compare_frame >= 0:
-            last_values = self.flat_result[compare_frame]
-            # Only change colours if a vortex wasn't just added/deleted
-            if len(last_values) == num_vortices:
-                diff = values - last_values
-                diff = np.mod(diff + self._result.size_ary/2, self._result.size_ary) - self._result.size_ary/2
-                distance = np.linalg.norm(diff, axis=1)
-                stationary = distance < self._result.movement_cutoff*self._result.movement_cutoff_time
-        for i, dot in enumerate(self._dots):
-            if i < num_vortices:
-                dot.set_data(values[i])
-                dot.set_color('r' if stationary[i] else 'b')
-            else:
-                dot.set_data([], [])
+        return cls(event_data, removed_vortices, time_steps*dt, number)
+    
+@dataclass
+class BasicAvalancheResult(PickleClass):
+    events: List[Event]
+    pinning_sites: np.ndarray
+    x_size: float
+    y_size: float
+    repeats: int
+    random_gen: np.random.Generator
+    force_cutoff: float
+    movement_cutoff: float
+    movement_cutoff_time: int
+    pinning_size: float
+    pinning_strength: float
+    size_ary: np.ndarray = field(init=False)
+    vortices_added: int = field(init=False)
+    
+    def __post_init__(self):
+        self.size_ary = np.array([self.x_size, self.y_size])
+        self.vortices_added = len(self.events)
+    
+    def get_event_sizes(self, time_start: int = 0, x_min: float = 1, rel_cutoff: float = 2):
+        events: List[int] = []
+        is_events = self.get_events(rel_cutoff, time_start, x_min)
+        for removed_num, is_event in is_events:
+            # Count all vortices that left the system as being part of the event
+            num_event = removed_num
+            num_event += np.count_nonzero(is_event)
             
-        return self._dots
+            events.append(num_event)
+        return events
+    
+    def get_events(self, rel_cutoff: float = 2, time_start: int = 0, x_min: float = 0):
+        is_events: List[Tuple[int, np.ndarray]] = []
+        # Iterate through each added vortex
+        for event in self.events[time_start:]:
+            start_pos = event.moved_vortices[0]
+            end_pos = event.moved_vortices[-1]
+            
+            displacement = end_pos - start_pos
+            displacement = np.mod(displacement + self.size_ary/2, self.size_ary) - self.size_ary/2
+            distance_moved = np.linalg.norm(displacement, axis=1)
+            is_event = np.logical_and(distance_moved > rel_cutoff*self.pinning_size,
+                                      end_pos[:, 0] >= x_min)
+            
+            is_events.append((len(event.removed_vortices), is_event))
+        return is_events
+    
+    def get_settled_x(self):
+        output: List[np.ndarray] = []
+        for event in self.events:
+            end_result_x = event.moved_vortices[-1]
+            output.append(end_result_x)
+        return output
+    

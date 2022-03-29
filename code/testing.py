@@ -1,6 +1,4 @@
-from functools import partial
 import timeit
-from typing import Union
 import matplotlib.pyplot as plt
 import os
 from tqdm import trange

@@ -1,0 +1,21 @@
+Title
+Intro to type II
+Vortex interaction and high-k limit
+Pinning
+Avalanche system inc. comparison to experimental method
+Overview of simulation method
+Observed channel behaviour and change of pin layout
+Observed avalanches at high density
+Criticality and comparison to sandpile
+Power law fitting results
+Conclusion(s)
+
+
+
+Vortex repulsion without considering currents - energy stuff?
+Think about why density must be linear and not uniform
+Reorder structure to make story clearer
+Change description of pinning force - constant over space within cutoff, distinguish from time
+Consider reworking animations to make final states clearer
+Consider histograms for phase plots
+Remove small event sizes?
