@@ -109,7 +109,7 @@ def gen_phase_plot_from_sizes(sizes: List[int], filename: str, title: Optional[s
             end += 'log'
         if end:
             end += '_'
-        plt.savefig(os.path.join(save_dir, f'{end}{filename}.jpg'))
+        plt.savefig(os.path.join(save_dir, f'{end}{filename}.png'))
     
 def add_pins_to_plot(ax: Axes, result: Union[AvalancheResult, BasicAvalancheResult]):
     for pinned_vortex in result.pinning_sites:
@@ -136,7 +136,7 @@ def pin_plot(filename: str, load_folder: str = '', save_dir: Optional[str] = Non
     if save_dir is not None:
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
-        plt.savefig(os.path.join(save_dir, f'{filename}_pins.jpg'))
+        plt.savefig(os.path.join(save_dir, f'{filename}_pins.png'))
     
 def gen_path_plots(save_dir: str, filename: str, inc_pins: bool = True, time_start: int = 0):
     if not os.path.exists(save_dir):
@@ -159,7 +159,7 @@ def gen_path_plots(save_dir: str, filename: str, inc_pins: bool = True, time_sta
             colour = p[0].get_color()
             for path_sec in path_cuts[1:]:
                 ax.plot(*path_sec, color=colour)
-        plt.savefig(os.path.join(save_dir,  f'vortex_add{i+time_start}-size-{sizes[i]}.jpg'))
+        plt.savefig(os.path.join(save_dir,  f'vortex_add{i+time_start}-size-{sizes[i]}.png'))
         plt.close(fig)
         
 def cut_path(path: np.ndarray, y_size: float) -> List[Tuple[np.ndarray, np.ndarray]]:
@@ -181,7 +181,7 @@ def cut_path(path: np.ndarray, y_size: float) -> List[Tuple[np.ndarray, np.ndarr
 def gen_density_plot(save_dir: str, filename: str):
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
-    result = AvalancheResult.load(os.path.join('Density_sweep_avg', filename))
+    result = AvalancheResult.load(filename)
     x_pos_lst = result.get_settled_x()
     for i, x_pos in enumerate(x_pos_lst):
         fig = plt.figure()
@@ -194,7 +194,7 @@ def gen_density_plot(save_dir: str, filename: str):
         ax.set_xlim(0, result.x_size)
         ax.set_ylim(0)
         
-        plt.savefig(os.path.join(save_dir,  f'vortex_add{i}.jpg'))
+        plt.savefig(os.path.join(save_dir,  f'vortex_add{i}.png'))
         plt.close(fig)
         
 def alpha_solve(alpha: float, s_min: int, s_max: int, suff_stat: float = 0):
@@ -292,7 +292,10 @@ def exponent_plot(event_sizes: List[int], s_mins: Sequence[int],
                   p_val_lim: Optional[float] = None, show: bool = False):
     end = f'_plim{p_val_lim}' if p_val_lim is not None else ''
     max_p_val = 0
-    max_p_pos: Tuple[int, int] = None
+    max_p_pos: Optional[Tuple[int, int]] = None
+    largest_good_range: Optional[Tuple[int, int]] = None
+    largest_range = 0
+    event_sizes = np.array(event_sizes)
     
     exponent_grid = np.full((len(s_mins), len(s_maxes)), np.nan)
     filtered_exponent_grid = np.full((len(s_mins), len(s_maxes)), np.nan)
@@ -308,6 +311,10 @@ def exponent_plot(event_sizes: List[int], s_mins: Sequence[int],
             exponent_grid[i, j] = alpha
             if p_val_lim is None or p_val >= p_val_lim:
                 filtered_exponent_grid[i, j] = alpha
+                num_data = len(event_sizes[(event_sizes >= s_min) & (event_sizes <= s_max)])
+                if num_data > largest_range:
+                    largest_range = num_data
+                    largest_good_range = (s_min, s_max)
     
     fig, ax = plt.subplots()
     im = ax.imshow(filtered_exponent_grid, cmap=colourmap, interpolation='nearest', origin='lower',
@@ -320,9 +327,14 @@ def exponent_plot(event_sizes: List[int], s_mins: Sequence[int],
         ax.contour(x_grid, y_grid, exponent_grid, contours_vals, alpha=0.7, colors='w')
         end += '_contour'
     
-    ax.plot(max_p_pos[1], max_p_pos[0], 'xk')
+    if max_p_pos is not None:
+        ax.plot(max_p_pos[1], max_p_pos[0], 'x', color='grey', label='Maximum p-value')
+    if largest_good_range is not None:
+        ax.plot(largest_good_range[1], largest_good_range[0], '.', color='grey',
+                label='Largest number of data\npoints with acceptable p-value')
 
     fig.colorbar(im)
+    ax.legend()
     ax.set_xlim(min(s_maxes)-0.5, max(s_maxes)+0.5)
     ax.set_ylim(min(s_mins)-0.5, max(s_mins)+0.5)
     ax.set_xlabel('$s_{{max}}$')
@@ -333,9 +345,9 @@ def exponent_plot(event_sizes: List[int], s_mins: Sequence[int],
         save_dir, filename = save_info
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
-        plt.savefig(os.path.join(save_dir, f'exponent_{filename}{end}.jpg'))
+        plt.savefig(os.path.join(save_dir, f'exponent_{filename}{end}.png'))
         
-    return max_p_pos
+    return largest_good_range
 
 def fit_folder(directory: str):
     save_dir = os.path.join('results', 'Figures', 'Phase_plots', 'System_range5.5')
@@ -350,18 +362,21 @@ def fit_folder(directory: str):
         ax.set_xlim([0, result.x_size])
         ax.set_ylim([0, result.y_size])
         add_pins_to_plot(ax, result)
-        plt.savefig(os.path.join(save_dir, f'{filename}_pins.jpg'))
+        plt.savefig(os.path.join(save_dir, f'{filename}_pins.png'))
         plt.close(fig)
         
         del result
         max_event = max(sizes)
-        s_min, s_max = exponent_plot(sizes, range(1, max_event), range(2, max_event+1), MY_CM,
-                                     (save_dir, filename), 0.2, 0.05)
+        plim = 0.2
+        s_range = exponent_plot(sizes, range(1, max_event), range(2, max_event+1), MY_CM,
+                                (save_dir, filename), 0.2, plim)
         # s_max = naive_fit_smax(sizes)
-        gen_phase_plot_from_sizes(sizes, filename, f'Power law fit for seed {seed}',
-                                  save_dir, False, [s_min, s_max], quiet=True)
-        gen_phase_plot_from_sizes(sizes, filename, f'Power law fit for seed {seed}',
-                                  save_dir, False, [s_min, s_max], True, quiet=True)
+        if s_range is not None:
+            s_min, s_max = s_range
+            gen_phase_plot_from_sizes(sizes, f'{filename}_plim{plim}', f'Power law fit for seed {seed}',
+                                    save_dir, False, [s_min, s_max], quiet=True)
+            gen_phase_plot_from_sizes(sizes, f'{filename}_plim{plim}', f'Power law fit for seed {seed}',
+                                    save_dir, False, [s_min, s_max], True, quiet=True)
         plt.close('all')
 
 def rand_power_law_vals(alpha, s_min, s_max, num_vals: int,
@@ -391,19 +406,19 @@ if __name__ == '__main__':
     # plt.show(block=False)
     
     # s_maxes = list(range(10, 21, 2)) + list(range(21, 30))+ list(range(30, 51, 5))
-    name = 'new_pins_continued_5.5'
-    result = AvalancheResult.load(os.path.join('New_pins', name))
-    sizes = result.get_event_sizes(10)
-    del result
-    max_event = max(sizes)
-    exp_plot_args = (sizes, range(1, max_event), range(2, max_event+1), MY_CM,
-                     (os.path.join('results', 'Figures', 'Phase_plots', 'Density5.5'), 'density55'))
-    exponent_plot(*exp_plot_args)
-    exponent_plot(*exp_plot_args, 0.2)
-    exponent_plot(*exp_plot_args, p_val_lim=0.05)
-    exponent_plot(*exp_plot_args, 0.2, p_val_lim=0.05)
-    exponent_plot(*exp_plot_args, p_val_lim=0.0)
-    exponent_plot(*exp_plot_args, 0.2, p_val_lim=0.0)
+    # name = 'new_pins_continued_5.5'
+    # result = AvalancheResult.load(os.path.join('New_pins', name))
+    # sizes = result.get_event_sizes(10)
+    # del result
+    # max_event = max(sizes)
+    # exp_plot_args = (sizes, range(1, max_event), range(2, max_event+1), MY_CM,
+    #                  (os.path.join('results', 'Figures', 'Phase_plots', 'Density5.5'), 'density55'))
+    # exponent_plot(*exp_plot_args)
+    # exponent_plot(*exp_plot_args, 0.2)
+    # exponent_plot(*exp_plot_args, p_val_lim=0.05)
+    # exponent_plot(*exp_plot_args, 0.2, p_val_lim=0.05)
+    # exponent_plot(*exp_plot_args, p_val_lim=0.0)
+    # exponent_plot(*exp_plot_args, 0.2, p_val_lim=0.0)
     # for s_max in s_maxes:
     #     print(f'{s_max = }')
     #     gen_phase_plot_from_sizes(sizes, f'density60_smax_{s_max}', f'Power law fit for density 6.0',
@@ -413,7 +428,7 @@ if __name__ == '__main__':
     #                               os.path.join('results', 'Figures', 'Phase_plots'),
     #                               False, s_max, False)
     # plt.show(block=False)
-    # fit_folder(os.path.join('results', 'Simulation_results', 'BasicAvalancheResult'))
+    fit_folder(os.path.join('results', 'Simulation_results', 'BasicAvalancheResult'))
     
     # pin_plot('new_pins_continued_5.5', 'New_pins', os.path.join('results', 'Figures'))
     # pin_plot('continued_5.5', 'Density_sweep', os.path.join('results', 'Figures'))
@@ -421,6 +436,6 @@ if __name__ == '__main__':
     # input('Press enter to exit')
     # gen_path_plots(os.path.join('results', 'Figures', 'Event_paths', 'NewPins5.5_cont_events'),
     #                'new_pins_continued_5.5', time_start=10)
-    # gen_density_plot(os.path.join('results', 'Figures', 'Density_gradients', 'Density6.0_gradient'),
-    #                  'density_sweep_6.0')
+    # gen_density_plot(os.path.join('results', 'Figures', 'Density_gradients', 'Big5.5_init'),
+    #                  'big5.5_init')
     pass
