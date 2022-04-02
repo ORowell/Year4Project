@@ -2,7 +2,7 @@
 
 %% Language and font encodings
 \usepackage[english]{babel}
-\usepackage[utf8x]{inputenc}
+\usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
 
 %% Sets page size and margins
@@ -14,13 +14,31 @@
 \usepackage[colorinlistoftodos]{todonotes}
 \usepackage{hyperref}
 \usepackage{crop,array,color,amssymb,flushend,stfloats,amsthm,chngpage,times,fancyhdr,lipsum,lastpage}
+\usepackage{minted}
+\usepackage{csquotes}
 \usepackage{subcaption}
+\usepackage{listings}
+\lstset{language=python}
 \numberwithin{equation}{section}
 \usepackage[backend=biber,sorting=none]{biblatex}
 \addbibresource{references.bib}
 
 \renewcommand{\bottomfraction}{0.6}
 \allowdisplaybreaks
+
+%%%%%%%%%%%%   Header and Footer  %%%%%%%%%%%%%
+\pagestyle{fancy}
+
+\fancypagestyle{plain}{%
+  \renewcommand{\headrulewidth}{0pt}%
+  \fancyhf{}%
+  \fancyfoot[R]{Page \bf\thepage\ \rm of \bf\pageref{LastPage}}%
+}
+
+\fancyhf{}
+\fancyhead[L]{Owen Rowell}
+\fancyhead[R]{1881130}
+\fancyfoot[R]{Page \bf\thepage\ \rm of \bf\pageref{LastPage}}
 
 \title{Project Title}
 \author{Owen Rowell}
@@ -29,18 +47,101 @@
 \begin{document}
 \input{title/title.tex}
 
-\begin{abstract}
-Your abstract goes here
-\end{abstract}
-
 \renewcommand{\abstractname}{Acknowledgements}
 \begin{abstract}
 Thanks mum!
 \end{abstract}
 
+\newpage
 \tableofcontents
 \listoffigures
 \listoftables
+\listoftodos
+\newpage
+
+\section{Background}
+\subsection{Criticality}
+\todo[inline]{Compare to paper by field\cite{Field1995SuperconductingAvalanches} (and others). Discuss the experimental system being compared to}
+\section{Simulation model}
+\todo[inline]{Discuss mathematically how things are being modelled and the model in a perfect sense - periodic BCs, mirror images, completely stationary. Discuss mathematical assumptions and their justification experimentally}
+\section{Simulation methods}
+\subsection{Imaging system and BCs}
+\todo[inline]{Should this include first attempt at images (not producing lattice at edge)?}
+\subsection{Adding vortices}
+\todo[inline]{Discussion of issues with oscillating particles - balance of speed and accuracy}
+
+\subsection{Optimisations}
+Due to the nature of the system involving a large number of particles interacting with every other particle and every other pin, it is essential that the system runs as quickly as possible. This allows for larger simulations to be run within reasonable lengths of time as well as simulations to generate more data within a given time frame. Below are the key optimisations used or tried within my project.
+\subsubsection{Vectorising calculations with numpy}
+Due to it's nature as an interpreted language, loops within Python are inherently slow as each line must be analysed each time it is run, creating significant overhead within loops that can be run millions of times. To negate this, all calculations are done using numpy arrays and functions. The core parts of numpy are written in compiled C or Fortran and are highly optimised, removing the inherent bottleneck within Python when working across large multi dimensional arrays.
+
+However, while numpy offers the potential for significant speed ups within Python, code must be written accordingly to maximise the use of numpy operations over pure Python loops. An example of this 
+\begin{minted}{python}
+def _get_images(self, vortices):
+        """Return an array of the images of each vortex in vortices"""
+        # Find the offsets for each "tile" of images
+        x_offset = np.repeat(np.arange(-self.x_images, self.x_images+1),
+                             2*self.y_images+1) * self.x_size
+        y_offset = np.tile(np.arange(-self.y_images, self.y_images+1),
+                          2*self.x_images+1) * self.y_size
+        
+        # Remove the (0, 0) cases (non-image)
+        x_offset = np.delete(x_offset, x_offset.size//2, axis=0)
+        y_offset = np.delete(y_offset, y_offset.size//2, axis=0)
+        
+        # Add the offsets to each vortex
+        x_images = (x_offset[np.newaxis, :] + vortices[:, 0][:, np.newaxis]).flatten()
+        y_images = (y_offset[np.newaxis, :] + vortices[:, 1][:, np.newaxis]).flatten()
+              
+        return np.stack((x_images, y_images), axis=1)
+\end{minted}
+
+\subsubsection{Cutoffs}
+\subsubsection{Attempt at linked lists}
+\todo[inline]{Discuss python inefficiency, compare with profiles and plots}
+A common method of increasing computational efficiency of molecular dynamics simulations is the use of cell linked-lists \cite{AddRef}. For forces with a cutoff radius, such as those in the avalanche system, it is not necessary to calculate the distance between all pairs of interacting objects if they are outside of the cutoff. Instead merely identifying a pair as sufficiently far apart to not interact is suitable, even if their exact distance is not known.
+
+Cell lists split the system in to a grid of cells with size equal to the cutoff radius of a given interaction. By identifying the cell in which a vortex is in, all cells except the nearest neighbours can be excluded as being outside of the cutoff range as shown in figure~\ref{fig:cell_list}.
+\begin{figure}[htb]
+    \centering
+    % \includegraphics[width=0.8\linewidth]{}
+    \missingfigure{Cell linked-list diagram}
+    \caption{}\todo[inline]{Caption for cell list figure (\ref{fig:cell_list})}
+    \label{fig:cell_list}
+\end{figure}
+
+However, this optimisation only results in a speed up if the time taken to process the cell lists is less than the time that would otherwise have been spent calculating extra distances. The results of my implementation are shown in figure~\ref{tab:pin_force_profile} which clearly shows this method is not a speed up at all in the case of my code. Whilst it can be seen that using cell lists does result in a speed up when calculating distances through \lstinline{np.linalg.norm} as well as other parts of the function, this is significantly outweighed by time taken to process the pin cells. This is due to the requirement to both find the cell in which each vortex resides and then group together every pin in the surrounding cells. \todo{Possibly investigate optimising the generation of cells further}
+\begin{table}[htb]
+    \centering
+    \begin{tabular}{c|c|c}
+        Function call & With cell lists & Without cell lists \\
+        \hline
+        \_pinning\_force body   & 28    & 44    \\
+        np.linalg.norm          & 69    & 80    \\
+        np.sum                  & 49    & 54    \\
+        \_get\_pin\_sites       & 182   & 0.5   \\
+        \hline
+        Total                   & 250   & 106   \\
+    \end{tabular}
+    \caption{Comparison of total time, in seconds, spent on each part of the \lstinline{\_pinning\_force} method when using cell linked-lists and not. Note that these values are specific for a given run and are not from accurate performance testing.}
+    \label{tab:pin_force_profile}
+\end{table}
+Whilst it is likely my simple implementation is not as efficient as it has potential to be, it is clear the time save is highly unlikely to ever be greater than the cost of processing the cell grid. \todo{Complete section after finishing prior discussion of vectorised numpy}
+
+\subsubsection{Running at lower accuracy to initialise}
+\todo[inline]{Discuss the large time difference between the two stop speed choices and the lack of need to be accurate initially with respect to event sizes as they are not being measured.}
+
+\section{Results}
+\subsection{Initial results}
+\todo[inline]{Easy flow channels at low density, clustering of pins}
+\todo[inline]{Possibly discuss the initial problems with vortex mirroring?}
+\subsection{Change of pin arrangement}
+\section{Power law fitting}
+\subsection{Maximum-likelihood estimation}
+\subsection{Choosing of truncation parameters}
+\todo[inline]{Methods suggested in literature, problems with the use of p-value. Exponent plots and how I chose values}
+\subsection{Fitting results}
+\section{Conclusions}
 
 \printbibliography
 
