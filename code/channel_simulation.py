@@ -8,8 +8,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import tqdm
 
-from simulation import (HALF_ROOT_3, SAVE_LOCATION, SimAnimator, SimResult,
-                        Simulation)
+from avalanche_analysis_classes import SAVE_LOCATION, SimResult
+from simulation import HALF_ROOT_3, SimAnimator, Simulation
 
 # Default values
 PINNED_DEPTH = 4
@@ -33,7 +33,8 @@ class ChannelSimResult(SimResult):
     
     @classmethod
     def from_SimResult(cls, simresult: SimResult, pinned_vortices):
-        return cls(simresult.values, simresult.dt, simresult.x_size, simresult.y_size, simresult.cutoff, pinned_vortices)
+        return cls(simresult.values, simresult.dt, simresult.x_size,
+                   simresult.y_size, simresult.cutoff, pinned_vortices) #type: ignore
     
 @dataclass
 class AnalyticalChannelSimResult(SimResult):
@@ -41,7 +42,8 @@ class AnalyticalChannelSimResult(SimResult):
     
     @classmethod
     def from_SimResult(cls, simresult: SimResult, n_max):
-        return cls(simresult.values, simresult.dt, simresult.x_size, simresult.y_size, simresult.cutoff, n_max)
+        return cls(simresult.values, simresult.dt, simresult.x_size,
+                   simresult.y_size, simresult.cutoff, n_max) #type: ignore
 
 class _AbstractChannelSimulation(Simulation, ABC):
     @classmethod

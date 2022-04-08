@@ -197,10 +197,10 @@ class VortexAvalancheBase(Simulation, ABC):
             self.add_vortex(self.random_gen.uniform(0, 1), self.random_gen.uniform(0, self.y_size))
             new_result_lst = []
             new_result_ary = self.vortices.copy()[np.newaxis, ...]
-            this_vortex_count = 0
+            vortex_time_steps = 0
             while (max_time_steps is None or total_time_steps < max_time_steps) and \
                   (wall_time == 0 or time() - start_time.START_TIME < wall_time):
-                this_vortex_count += 1
+                vortex_time_steps += 1
                 total_time_steps += 1
                 self._step(dt, force_cutoff)
                 if time_pbar is not None:
@@ -215,16 +215,16 @@ class VortexAvalancheBase(Simulation, ABC):
                     distance = np.linalg.norm(displacement, axis=1)
                     
                     # If this event is taking a long time print out updates
-                    if this_vortex_count == print_after:
+                    if vortex_time_steps == print_after:
                         print()
-                    if print_after is not None and this_vortex_count >= print_after:
+                    if print_after is not None and vortex_time_steps >= print_after:
                         np_out = np.array2string(displacement[np.argmax(distance)], formatter=NP_FORMATTER)
                         print(f'Vortex {np.argmax(distance):>3}: {np_out:<35}{movement_cutoff*cutoff_time:.2e}',
                               end='\r')
                     
                     if np.all(distance < movement_cutoff*cutoff_time):
                         new_result_lst.append(new_result_ary)
-                        if include_pbar and print_after is not None and this_vortex_count >= print_after:
+                        if include_pbar and print_after is not None and vortex_time_steps >= print_after:
                             sys.stdout.write("\x1b[1A")
                         break
                 
@@ -246,16 +246,19 @@ class VortexAvalancheBase(Simulation, ABC):
             if max_time_steps is not None and total_time_steps >= max_time_steps:
                 if include_pbar:
                     iterator.close()
+                    time_pbar.close()
                     sys.stdout.flush()
                 print('Hit time step count. Ending simulation', flush=True)
                 break
             if wall_time != 0 and time() - start_time.START_TIME >= wall_time:
                 if include_pbar:
                     iterator.close()
+                    time_pbar.close()
                     sys.stdout.flush()
                 print('Hit wall time. Ending simulation', flush=True)
                 break
         else:
+            time_pbar.close()
             print(f'Simulation completed in {total_time_steps} time steps', flush=True)
             
         return AvalancheResult(result_vals, removed_vortices, self.pinning_sites, dt*save_comp,
