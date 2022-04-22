@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --ntasks 2
 #SBATCH --time 10-0:0:0
-#SBATCH --mem 40G
+#SBATCH --mem 70G
 #SBATCH --account watkinjs-supercon
 #SBATCH --qos bbdefault
 #SBATCH --mail-type ALL
