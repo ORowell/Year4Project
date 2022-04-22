@@ -119,10 +119,12 @@ class VortexAvalancheBase(Simulation, ABC):
         
     @classmethod
     def create_system(cls, x_size: int, y_size: int, repeats: int, pinned_density: float,
-                      pin_size: float, pin_strength: float, random_seed: Optional[int] = None):
+                      pin_size: float, pin_strength: float, random_seed: Optional[int] = None,
+                      noise_factor: float = 0.2):
         obj = cls(x_size, y_size, 0, repeats, pin_size, pin_strength)
         num_pins = int(obj.x_size * obj.y_size * pinned_density)
-        obj.pinning_sites = np.append(obj.pinning_sites, obj._generate_pin_pos(num_pins, random_seed), axis=0)
+        obj.pinning_sites = np.append(obj.pinning_sites,
+                                      obj._generate_pin_pos(num_pins, random_seed, noise_factor), axis=0)
         
         return obj
         
@@ -146,7 +148,8 @@ class VortexAvalancheBase(Simulation, ABC):
         
         return obj
     
-    def _generate_pin_pos(self, n_pins: int, seed: Optional[int] = None):
+    def _generate_pin_pos(self, n_pins: int, seed: Optional[int] = None,
+                          _: float = 0.):
         return self._generate_random_pos(n_pins, seed, 1)
         
     def _get_all_vortices(self):

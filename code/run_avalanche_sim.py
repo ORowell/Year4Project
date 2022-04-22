@@ -13,6 +13,7 @@ REPEATS             = 1             #     --repeats
 PIN_DENSITY         = 5.5           # -d, --density
 PIN_SIZE            = 0.15          #     --pin_radius
 PIN_STRENGTH        = 3.            #     --pin_force
+NOISE_FACTOR        = 0.2           #     --noise
 SEED                = 1001          # -s, --seed
 DT                  = 1e-4          #     --dt
 REL_STOP_SPEED      = 0.1           #     --rel_stop_speed
@@ -36,7 +37,8 @@ if __name__ == '__main__':
                                'density=', 'pin_radius=', 'pin_force=',
                                'seed=', 'dt=', 'rel_stop_speed=', 'init_rel_stop_speed=',
                                'init_vortices=', 'vortices=', 'name=', 'compress=',
-                               'print_after=', 'max_time=', 'start_from=', 'wall_time='])
+                               'print_after=', 'max_time=', 'start_from=', 'wall_time=',
+                               'noise='])
     for opt, arg in opts:
         if opt == '--profile':
             PROFILING = True
@@ -59,6 +61,9 @@ if __name__ == '__main__':
         elif opt == '--pin_force':
             PIN_STRENGTH = float(arg)
             print(f'Setting {PIN_STRENGTH = }')
+        elif opt == '--noise':
+            NOISE_FACTOR = float(arg)
+            print(f'Setting {NOISE_FACTOR = }')
         elif opt in ('-s', '--seed'):
             SEED = int(arg)
             print(f'Setting {SEED = }')
@@ -107,15 +112,16 @@ if WALL_TIME != 0:
 if NAME == '':
     NAME = f'test{SEED}'
 
-def main(length: int = LENGTH, width: int = WIDTH, repeats: int = REPEATS, density: float = PIN_DENSITY,
+def main(*, length: int = LENGTH, width: int = WIDTH, repeats: int = REPEATS, density: float = PIN_DENSITY,
          pin_size: float = PIN_SIZE, pin_strength: float = PIN_STRENGTH, seed: int = SEED, dt: float = DT,
          movement_cutoff: float = MOVEMENT_CUTOFF, num_vortices: int = NUM_VORTICES, max_time: Optional[int] = MAX_TIME,
          init_movement_cutoff: float = INIT_MOVEMENT_CUTOFF, init_num_vortices: int = INIT_NUM_VORTICES,
          name: str = NAME, compress: Optional[int] = COMPRESS, print_after: Optional[int] = PRINT_AFTER,
-         start_from: Optional[str] = START_FROM, wall_time: float = WALL_TIME):
+         start_from: Optional[str] = START_FROM, wall_time: float = WALL_TIME, noise_factor: float = NOISE_FACTOR):
     if start_from is None:
         print('Creating initial simulation', flush=True)
-        init_sim = StepAvalancheSim.create_system(length, width, repeats, density, pin_size, pin_strength, seed)
+        init_sim = StepAvalancheSim.create_system(length, width, repeats, density, pin_size,
+                                                  pin_strength, seed, noise_factor)
         print('Running initial simulation', flush=True)
         init_result = init_sim.run_vortex_sim(init_num_vortices, dt, 9, init_movement_cutoff, 100,
                                               print_after=print_after, max_time_steps=max_time,
