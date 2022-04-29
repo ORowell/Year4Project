@@ -87,6 +87,14 @@ class ImagesAvalancheAnimator(AvalancheAnimator):
         self.total_images = 1+4*self._image_num
         fig, ax = super()._anim_init(max_vortices*(1+self.total_images))
         
+        # Add lines round each image
+        min_y = -self._y_size*self._image_num
+        max_y = self._y_size*(1+self._image_num)
+        ax.plot([0, 0], [min_y, max_y], color='grey', linestyle='dashed')
+        for i in range(-self._image_num, self._image_num):
+            ax.plot([-self._result.x_size, self._result.x_size], [(i+1)*self._y_size]*2,
+                    color='grey', linestyle='dashed')
+        
         # Resize the figure and axes limits
         fig_width, fig_height = fig.get_size_inches()
         fig_width *= 2
@@ -102,6 +110,7 @@ class ImagesAvalancheAnimator(AvalancheAnimator):
         for i, dot in enumerate(self._dots):
             if i >= self.max_real:
                 dot.set_alpha(0.3)
+        fig.tight_layout()
                 
         return fig, ax
         
@@ -229,7 +238,7 @@ class EventAnimator(AvalancheAnimator):
         for i, dot in enumerate(self._dots):
             if i < num_vortices:
                 dot.set_data(values[i])
-                dot.set_color('r' if self._stationary[i] else 'b')
+                dot.set_color('r')# if self._stationary[i] else 'b')
             else:
                 dot.set_data([], [])
             
@@ -262,6 +271,8 @@ def animate_file(filename: str, directory: str, output_ext: str = '', freq: Opti
         animator = ImagesAvalancheAnimator()
     elif style == 'events':
         animator = EventAnimator()
+    else:
+        raise ValueError(f'style argument only accepts values "normal", "images" or "events".')
     animator.animate(result, f'{filename}{output_ext}_f{freq}.gif', anim_freq,
                      event_range, **animator_kwargs)
     
@@ -275,14 +286,15 @@ def animate_folder(directory: str, output_ext: str = '', single_freq: bool = Tru
             freq_used = None
             
 if __name__ == '__main__':
-    # animate_file('new_pins_continued_5.5',
-    #              os.path.join('results', 'Simulation_results', 'AvalancheResult', 'New_pins'),
-    #              '_event207', 10, slice(203, 209), 'events', pause_frames=20)
-    #             #  '_event134', 10, slice(130, 136), 'events', pause_frames=20)
+    animate_file('new_pins_density_sweep_5.5',
+                 os.path.join('results', 'Simulation_results', 'AvalancheResult', 'New_pins'),
+                 '_images', style='images')
+                #  '_event80_r', 1, 80, 'events')
+                #  '_event134', 10, slice(130, 136), 'events', pause_frames=20)
     # animate_file('new_continued_5.5',
     #              os.path.join('results', 'Simulation_results', 'AvalancheResult', 'Density_sweep'),
     #              '_events', style='events', pause_frames=10)
     #             #  '_event261', 5, slice(256, 262), 'events', pause_frames=100)
-    animate_file('big5.5', os.path.join('results', 'Simulation_results', 'AvalancheResult'))
+    # animate_file('big5.5_init', os.path.join('results', 'Simulation_results', 'AvalancheResult'))
     # animate_folder(os.path.join('results', 'Simulation_results', 'AvalancheResult', 'Density_sweep'))
     pass

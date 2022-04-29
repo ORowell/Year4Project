@@ -181,9 +181,12 @@ class AvalancheResult(PickleClass):
                                     self.movement_cutoff, self.movement_cutoff_time,
                                     self.pinning_size, self.pinning_strength)
     
+    def get_removed_nums(self, time_start: int = 0):
+        return [len(del_vortices) for del_vortices in self.removed_vortices[time_start:]]
+    
     def get_event_sizes(self, time_start: int = 0, x_min: float = 1, rel_cutoff: float = 2):
         events: List[int] = []
-        is_events = self.get_events(rel_cutoff, time_start, x_min)
+        is_events = self.get_events(time_start, x_min, rel_cutoff)
         for del_vortices, is_event in is_events:
             # Count all vortices that left the system as being part of the event
             num_event = len(del_vortices)
@@ -192,7 +195,7 @@ class AvalancheResult(PickleClass):
             events.append(num_event)
         return events
     
-    def get_events(self, rel_cutoff: float = 2, time_start: int = 0, x_min: float = 0):
+    def get_events(self, time_start: int = 0, x_min: float = 0, rel_cutoff: float = 2):
         is_events: List[Tuple[List[int], np.ndarray]] = []
         # Iterate through each added vortex
         for data, del_vortices in zip(self.values[time_start:], self.removed_vortices[time_start:]):
@@ -214,7 +217,7 @@ class AvalancheResult(PickleClass):
     
     def get_event_paths(self, time_start: int = 0, x_min: float = 1, rel_cutoff: float = 2):
         events_paths: List[List[np.ndarray]] = []
-        is_events = self.get_events(rel_cutoff, time_start, x_min)
+        is_events = self.get_events(time_start, x_min, rel_cutoff)
         for (del_vortices, is_event), data in zip(is_events, self.values[time_start:]):
             event_paths: List[np.ndarray] = []
             data = data.copy()
@@ -288,10 +291,13 @@ class BasicAvalancheResult(PickleClass):
     def __post_init__(self):
         self.size_ary = np.array([self.x_size, self.y_size])
         self.vortices_added = len(self.events)
+        
+    def get_removed_nums(self, time_start: int = 0):
+        return [len(event.removed_vortices) for event in self.events[time_start:]]
     
     def get_event_sizes(self, time_start: int = 0, x_min: float = 1, rel_cutoff: float = 2):
         events: List[int] = []
-        is_events = self.get_events(rel_cutoff, time_start, x_min)
+        is_events = self.get_events(time_start, x_min, rel_cutoff)
         for removed_num, is_event in is_events:
             # Count all vortices that left the system as being part of the event
             num_event = removed_num
@@ -300,7 +306,7 @@ class BasicAvalancheResult(PickleClass):
             events.append(num_event)
         return events
     
-    def get_events(self, rel_cutoff: float = 2, time_start: int = 0, x_min: float = 0):
+    def get_events(self, time_start: int = 0, x_min: float = 0, rel_cutoff: float = 2):
         is_events: List[Tuple[int, np.ndarray]] = []
         # Iterate through each added vortex
         for event in self.events[time_start:]:

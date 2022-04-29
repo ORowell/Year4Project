@@ -1,7 +1,7 @@
 import copy
 import os
 import re
-from typing import List, Optional, Sequence, Tuple, Type, Union
+from typing import List, Literal, Optional, Sequence, Tuple, Type, Union
 
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
@@ -36,7 +36,7 @@ def phase_plot(events_lst: List[int], title=None, exclude_zero: bool = False,
     if exclude_zero:
         event_freq[0] = 0
     
-    fig = plt.figure()
+    fig = plt.figure(figsize=(4, 3))
     ax: Axes = fig.add_subplot(1, 1, 1)
     # fig.tight_layout()
     if log:
@@ -74,17 +74,22 @@ def phase_plot(events_lst: List[int], title=None, exclude_zero: bool = False,
 
 def gen_phase_plot(filename: str, title: Optional[str] = None, save_dir: Optional[str] = None,
                    time_start: int = 0, show: bool = True,
-                   s_range: Optional[Tuple[int, int]] = None, log: bool = False,
+                   s_range: Optional[Tuple[int, int]] = None,
+                   log: Literal['linear', 'log', 'both'] = 'linear',
                    result_type: Union[Type[AvalancheResult],
                                       Type[BasicAvalancheResult]] = AvalancheResult,
                    exclude_zero: bool = True):
-    result = result_type.load(os.path.join('Density_sweep', filename))
+    result = result_type.load(os.path.join('New_pins', filename))
     sizes = result.get_event_sizes(time_start)
     del result # Delete for memory management
     if title is None:
         title = filename
-    gen_phase_plot_from_sizes(sizes, filename, title,
-                              save_dir, show, s_range, log, exclude_zero)
+    if log == 'linear' or log == 'both':
+        gen_phase_plot_from_sizes(sizes, filename, title,
+                                save_dir, show, s_range, False, exclude_zero)
+    if log == 'log' or log == 'both':
+        gen_phase_plot_from_sizes(sizes, filename, title,
+                                save_dir, show, s_range, True, exclude_zero)
 
 def gen_phase_plot_from_sizes(sizes: List[int], filename: str, title: Optional[str] = None,
                               save_dir: Optional[str] = None, show: bool = True,
@@ -97,6 +102,7 @@ def gen_phase_plot_from_sizes(sizes: List[int], filename: str, title: Optional[s
     if s_range is not None:
         add_power_law(sizes, ax, *s_range, quiet)
         plt.legend()
+    fig.tight_layout()
     if show:
         plt.show(block=False)
     if save_dir is not None:
@@ -110,6 +116,42 @@ def gen_phase_plot_from_sizes(sizes: List[int], filename: str, title: Optional[s
         if end:
             end += '_'
         plt.savefig(os.path.join(save_dir, f'{end}{filename}.png'))
+        if not show:
+            plt.close(fig)
+        
+def gen_time_plot_from_sizes(sizes: List[int], filename: str, title: Optional[str] = None,
+                             save_dir: Optional[str] = None, show: bool = True):
+    if title is None:
+        title = filename
+        
+    fig = plt.figure()
+    ax: Axes = fig.add_subplot(1, 1, 1)
+    
+    ax.plot(range(len(sizes)), sizes)
+    
+    ax.set_xlim(0, len(sizes))
+    ax.set_ylim(0)
+    ax.set_xlabel('Event number')
+    ax.set_ylabel('Event size')
+    # plt.title(title)
+        
+    if show:
+        plt.show(block=False)
+    if save_dir is not None:
+        if not os.path.exists(save_dir):
+            os.makedirs(save_dir)
+        plt.savefig(os.path.join(save_dir, f'{filename}_time.png'))
+        
+def gen_time_plot(filename: str, title: Optional[str] = None, save_dir: Optional[str] = None,
+                  time_start: int = 0, show: bool = True,
+                  result_type: Union[Type[AvalancheResult],
+                                     Type[BasicAvalancheResult]] = AvalancheResult):
+    result = result_type.load(os.path.join('New_pins', filename))
+    sizes = result.get_event_sizes(time_start)
+    del result # Delete for memory management
+    if title is None:
+        title = filename
+    gen_time_plot_from_sizes(sizes, filename, title, save_dir, show)
     
 def add_pins_to_plot(ax: Axes, result: Union[AvalancheResult, BasicAvalancheResult]):
     for pinned_vortex in result.pinning_sites:
@@ -138,12 +180,15 @@ def pin_plot(filename: str, load_folder: str = '', save_dir: Optional[str] = Non
             os.makedirs(save_dir)
         plt.savefig(os.path.join(save_dir, f'{filename}_pins.png'))
     
-def gen_path_plots(save_dir: str, filename: str, inc_pins: bool = True, time_start: int = 0):
+def gen_path_plots(save_dir: str, filename: str, inc_pins: bool = True, 
+                   inc_stat_vortices: bool = False, time_start: int = 0):
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
     result = AvalancheResult.load(os.path.join('New_pins', filename))
     paths = result.get_event_paths(time_start)
     sizes = result.get_event_sizes(time_start)
+    if inc_stat_vortices:
+        non_events = [~is_event for _, is_event in result.get_events(time_start)]
     for i, path_lst in enumerate(paths):
         fig = plt.figure(figsize=(10, 10*result.y_size/result.x_size))
         ax: Axes = fig.add_subplot(1, 1, 1)
@@ -152,6 +197,11 @@ def gen_path_plots(save_dir: str, filename: str, inc_pins: bool = True, time_sta
         
         if inc_pins:
             add_pins_to_plot(ax, result)
+            
+        if inc_stat_vortices:
+            stat_vortices = result.values[i+time_start][-1][-1, non_events[i], :]
+            for x, y in stat_vortices:
+                ax.plot(x, y, 'o', c='r')
         
         for path in path_lst:
             path_cuts = cut_path(path, result.y_size)
@@ -350,10 +400,16 @@ def exponent_plot(event_sizes: List[int], s_mins: Sequence[int],
     return largest_good_range
 
 def fit_folder(directory: str):
-    save_dir = os.path.join('results', 'Figures', 'Phase_plots', 'System_range5.5')
+    save_dir = os.path.join('results', 'Figures', 'Phase_plots', 'System_range5.5', 'First runs')
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
     for filename in os.listdir(directory):
+        if 'cont' in filename or 'noise' in filename:
+            continue
         seed, = re.match(r'.*_(\d+)', filename).groups()
         result = BasicAvalancheResult.load(filename)
+        # density, = re.match(r'.*_(\d\.\d)', filename).groups()
+        # result = AvalancheResult.load(filename, directory)
         sizes = result.get_event_sizes(10)
         
         # Plot pins as well
@@ -373,10 +429,12 @@ def fit_folder(directory: str):
         # s_max = naive_fit_smax(sizes)
         if s_range is not None:
             s_min, s_max = s_range
-            gen_phase_plot_from_sizes(sizes, f'{filename}_plim{plim}', f'Power law fit for seed {seed}',
-                                    save_dir, False, [s_min, s_max], quiet=True)
-            gen_phase_plot_from_sizes(sizes, f'{filename}_plim{plim}', f'Power law fit for seed {seed}',
-                                    save_dir, False, [s_min, s_max], True, quiet=True)
+            title = f'Power law fit for seed {seed}'
+            # title = f'Power law fit for pin density {density}'
+            gen_phase_plot_from_sizes(sizes, f'{filename}_plim{plim}', title,
+                                      save_dir, False, [s_min, s_max], quiet=True)
+            gen_phase_plot_from_sizes(sizes, f'{filename}_plim{plim}', title,
+                                      save_dir, False, [s_min, s_max], True, quiet=True)
         plt.close('all')
 
 def rand_power_law_vals(alpha, s_min, s_max, num_vals: int,
@@ -399,10 +457,10 @@ if __name__ == '__main__':
     # plots = [4.0, 4.5, 5.0, 5.5, 6.0]
     # plots = [3.0, 5.5]
     # for d in plots:
-    #     gen_phase_plot(f'new_continued_{d:.1f}',f'Event sizes for density {d:.1f}',
-    #                    os.path.join('results', 'Figures', 'Phase_plots'), 10, False)
-    #     gen_phase_plot(f'new_pins_continued_{d:.1f}', True,
-    #                    os.path.join('results', 'Figures', 'Phase_plots'), 10, False, 50, True)
+    #     gen_phase_plot(f'new_pins_continued_{d:.1f}', f'Event sizes for density {d:.1f}',
+    #                    os.path.join('results', 'Figures', 'Phase_plots'), 10, False, log='both')
+        # gen_phase_plot(f'new_pins_continued_{d:.1f}', f'Event sizes for density {d:.1f}',
+        #                os.path.join('results', 'Figures', 'Phase_plots'), 10, False, log=True)
     # plt.show(block=False)
     
     # s_maxes = list(range(10, 21, 2)) + list(range(21, 30))+ list(range(30, 51, 5))
@@ -429,13 +487,16 @@ if __name__ == '__main__':
     #                               False, s_max, False)
     # plt.show(block=False)
     fit_folder(os.path.join('results', 'Simulation_results', 'BasicAvalancheResult'))
+    # fit_folder(os.path.join('results', 'Simulation_results', 'AvalancheResult', 'New_pins'))
     
     # pin_plot('new_pins_continued_5.5', 'New_pins', os.path.join('results', 'Figures'))
     # pin_plot('continued_5.5', 'Density_sweep', os.path.join('results', 'Figures'))
     
     # input('Press enter to exit')
-    # gen_path_plots(os.path.join('results', 'Figures', 'Event_paths', 'NewPins5.5_cont_events'),
-    #                'new_pins_continued_5.5', time_start=10)
+    # gen_path_plots(os.path.join('results', 'Figures', 'Event_paths', 'NewPins5.0_cont_events_all_vorts'),
+    #                'new_pins_continued_5.0', inc_stat_vortices=True, time_start=10)
+    # gen_time_plot('new_pins_continued_5.5', None, os.path.join('results', 'Figures'), 10)
     # gen_density_plot(os.path.join('results', 'Figures', 'Density_gradients', 'Big5.5_init'),
     #                  'big5.5_init')
+    
     pass
